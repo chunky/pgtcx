@@ -1,8 +1,8 @@
-PGHOST=diskstation.local
-PGPORT=5433
-PGUSER=ifit
-PGDB=ifit
+PGHOST=localhost
+PGPORT=5432
+PGUSER=pgtcx
+PGDB=pgtcx
 
-PGPASSWORD=ifit
+PGPASSWORD=pgtcx
 export PGPASSWORD
 

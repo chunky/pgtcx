@@ -15,6 +15,6 @@ I wanted a good way to consume and touch the data in them, and hasn't experiment
 Quick and easy database creation:
 ```sh
 sudo su - postgres
-createuser --pwprompt ifit
-createdb -O ifit ifit
+createuser --pwprompt pgtcx
+createdb -O pgtcx pgtcx
 ```

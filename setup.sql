@@ -12,12 +12,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trigger_generate_body_hash
+CREATE OR REPLACE TRIGGER trigger_generate_body_hash
     BEFORE INSERT OR UPDATE ON tcx
     FOR EACH ROW
     EXECUTE FUNCTION generate_body_hash();
 
-DROP VIEW IF EXISTS activity;
+DROP VIEW IF EXISTS activity CASCADE;
 CREATE MATERIALIZED VIEW activity AS
 SELECT tcx.tcxid AS tcxid,
     (XPATH('/tcx:TrainingCenterDatabase/tcx:Activities/tcx:Activity/tcx:Id/text()', body,
@@ -30,7 +30,7 @@ SELECT tcx.tcxid AS tcxid,
             ARRAY[ARRAY['tcx', 'http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2']]))[1] AS LapStartTime
   FROM tcx;
 
-DROP VIEW IF EXISTS trackpoint;
+DROP VIEW IF EXISTS trackpoint CASCADE;
 CREATE MATERIALIZED VIEW trackpoint AS
 SELECT tcx.tcxid AS tcxid,
         (XPATH('/tcx:TrainingCenterDatabase/tcx:Activities/tcx:Activity/tcx:Id/text()', body,

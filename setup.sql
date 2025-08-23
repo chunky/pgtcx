@@ -18,7 +18,7 @@ CREATE TRIGGER trigger_generate_body_hash
     EXECUTE FUNCTION generate_body_hash();
 
 DROP VIEW IF EXISTS activity;
-CREATE VIEW activity AS
+CREATE MATERIALIZED VIEW activity AS
 SELECT tcx.tcxid AS tcxid,
     (XPATH('/tcx:TrainingCenterDatabase/tcx:Activities/tcx:Activity/tcx:Id/text()', body,
             ARRAY[ARRAY['tcx', 'http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2']]))[1] AS activityid,
@@ -31,7 +31,7 @@ SELECT tcx.tcxid AS tcxid,
   FROM tcx;
 
 DROP VIEW IF EXISTS trackpoint;
-CREATE VIEW trackpoint AS
+CREATE MATERIALIZED VIEW trackpoint AS
 SELECT tcx.tcxid AS tcxid,
         (XPATH('/tcx:TrainingCenterDatabase/tcx:Activities/tcx:Activity/tcx:Id/text()', body,
        ARRAY[ARRAY['tcx', 'http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2']]))[1] AS activityid,

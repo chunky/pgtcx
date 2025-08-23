@@ -50,3 +50,15 @@ SELECT tcx.tcxid AS tcxid,
                         heart_rate INTEGER PATH 'tcx:HeartRateBpm/tcx:Value',
                         Time TIMESTAMPTZ PATH 'tcx:Time');
 
+DROP VIEW IF EXISTS speeds_dists;
+CREATE VIEW speeds_dists AS
+    SELECT B.*,
+        B.distancemeters-A.distancemeters AS delta_dist_m,
+        B.altitudemeters-A.altitudemeters AS delta_alt_m,
+        (B.heart_rate+A.heart_rate)/2.0 AS avg_heartrate_bpm,
+        B.time-A.time AS delta_t,
+        (B.distancemeters-A.distancemeters)/EXTRACT(EPOCH FROM (B.time-A.time)) AS speed_ms,
+        (B.altitudemeters-A.altitudemeters)/EXTRACT(EPOCH FROM (B.time-A.time)) AS alt_rate_ms
+    FROM trackpoint A
+        INNER JOIN trackpoint B ON B.tcxid=A.tcxid AND B.ordinality=A.ordinality+1;
+

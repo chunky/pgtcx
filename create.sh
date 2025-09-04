@@ -24,12 +24,3 @@ do
 		--command="\\COPY tcx(body) from stdin"
 done
 
-# Several views are marked as materialized. This materializes them
-#
-psql \
-	--host=${PGHOST} \
-	--port=${PGPORT} \
-	--username=${PGUSER} \
-	--dbname=${PGDB} \
-	--file=materialize.sql 
-

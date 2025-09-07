@@ -261,6 +261,13 @@
         function createChart(data) {
             const ctx = document.getElementById('activityChart').getContext('2d');
 
+            // Convert seconds to mm:ss format for display
+            const formattedLabels = data.labels.map(seconds => {
+                const minutes = Math.floor(seconds / 60);
+                const remainingSeconds = seconds % 60;
+                return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+            });
+
             // Calculate min and max heart rate values, starting from the 10th valid reading
             const heartRateValues = data.heart_rate.filter(value => value !== null && value !== undefined && value > 0);
             const heartRateValuesFromTenth = heartRateValues.slice(9); // Skip first 9 values (0-indexed)
@@ -283,7 +290,7 @@
             chart = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: data.labels,
+                    labels: formattedLabels,
                     datasets: [
                         {
                             label: 'Speed (km/h)',
@@ -410,7 +417,7 @@
                             display: true,
                             title: {
                                 display: true,
-                                text: 'Time (minutes)',
+                                text: 'Time (mm:ss)',
                                 font: {
                                     weight: 'bold'
                                 }

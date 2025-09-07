@@ -115,11 +115,10 @@ def get_activity_data(tcxid):
         start_time = data[0]['time']
 
         for row in data:
-            # Calculate elapsed time in minutes
+            # Calculate elapsed time in seconds
             elapsed_seconds = (row['time'] - start_time).total_seconds()
-            elapsed_minutes = elapsed_seconds / 60
 
-            formatted_data['labels'].append(round(elapsed_minutes, 2))
+            formatted_data['labels'].append(int(elapsed_seconds))
             formatted_data['speed'].append(row['speed_kph'])
             formatted_data['incline'].append(row['gradient'] or 0)
             formatted_data['heart_rate'].append(row['avg_heartrate_bpm'] or 0)

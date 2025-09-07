@@ -350,7 +350,7 @@
                                     borderDash: [5, 5],
                                     label: {
                                         display: true,
-                                        content: `Max HR: ${maxHeartRate} bpm`,
+                                        content: `Max HR: ${Math.round(maxHeartRate)} bpm`,
                                         position: 'start',
                                         backgroundColor: '#e74c3c',
                                         color: 'white',
@@ -370,7 +370,7 @@
                                     borderDash: [5, 5],
                                     label: {
                                         display: true,
-                                        content: `Min HR: ${minHeartRate} bpm`,
+                                        content: `Min HR: ${Math.round(minHeartRate)} bpm`,
                                         position: 'start',
                                         backgroundColor: '#27ae60',
                                         color: 'white',
@@ -380,6 +380,27 @@
                                         },
                                         padding: 4
                                     }
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.datasetIndex === 2) { // Heart Rate dataset
+                                        label += Math.round(context.parsed.y) + ' bpm';
+                                    } else {
+                                        label += context.parsed.y;
+                                        if (context.datasetIndex === 0) {
+                                            label += ' km/h';
+                                        } else if (context.datasetIndex === 1) {
+                                            label += '%';
+                                        }
+                                    }
+                                    return label;
                                 }
                             }
                         }

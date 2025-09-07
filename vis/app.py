@@ -79,6 +79,9 @@ def get_activities():
 def get_activity_data(tcxid):
     """Get speed, incline, and heart rate data for a specific activity"""
     try:
+        # Get smoothing parameter from query string, default to 1 (no smoothing)
+        smoothing = int(request.args.get('smoothing', 1))
+        
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
@@ -121,6 +124,12 @@ def get_activity_data(tcxid):
             formatted_data['incline'].append(row['gradient'] or 0)
             formatted_data['heart_rate'].append(row['avg_heartrate_bpm'] or 0)
 
+        # Apply smoothing if requested
+        if smoothing > 1:
+            formatted_data['speed'] = apply_moving_average(formatted_data['speed'], smoothing)
+            formatted_data['incline'] = apply_moving_average(formatted_data['incline'], smoothing)
+            formatted_data['heart_rate'] = apply_moving_average(formatted_data['heart_rate'], smoothing)
+
         cur.close()
         conn.close()
 
@@ -128,6 +137,33 @@ def get_activity_data(tcxid):
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+def apply_moving_average(data, window_size):
+    """Apply moving average smoothing to a list of numbers"""
+    if window_size <= 1 or len(data) < window_size:
+        return data
+    
+    smoothed = []
+    for i in range(len(data)):
+        # Calculate the window bounds
+        start = max(0, i - window_size // 2)
+        end = min(len(data), start + window_size)
+        
+        # Adjust start if we're near the end
+        if end - start < window_size:
+            start = max(0, end - window_size)
+        
+        # Calculate average of values in the window
+        window_values = data[start:end]
+        # Filter out None values and zeros for heart rate
+        valid_values = [v for v in window_values if v is not None and v != 0]
+        
+        if valid_values:
+            smoothed.append(sum(valid_values) / len(valid_values))
+        else:
+            smoothed.append(0)
+    
+    return smoothed
 
 if __name__ == '__main__':
     app.run(debug=True)

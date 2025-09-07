@@ -136,6 +136,16 @@
                 <select id="activitySelect">
                     <option value="">Choose an activity...</option>
                 </select>
+                
+                <label for="smoothingSelect">Smoothing:</label>
+                <select id="smoothingSelect">
+                    <option value="1">No smoothing (1 sample)</option>
+                    <option value="2" selected>Light smoothing (2 samples)</option>
+                    <option value="3">Medium smoothing (3 samples)</option>
+                    <option value="4">Heavy smoothing (4 samples)</option>
+                    <option value="5">Very heavy smoothing (5 samples)</option>
+                    <option value="10">Maximum smoothing (10 samples)</option>
+                </select>
             </div>
         </div>
 
@@ -164,10 +174,21 @@
 
     <script>
         let chart = null;
+        let selectedActivityName = null;
 
         // Load activities when page loads
         document.addEventListener('DOMContentLoaded', function() {
             loadActivities();
+            
+            // Add event listener for smoothing selection
+            const smoothingSelect = document.getElementById('smoothingSelect');
+            smoothingSelect.addEventListener('change', function() {
+                // Reload chart data with new smoothing if an activity is selected
+                const activitySelect = document.getElementById('activitySelect');
+                if (activitySelect.value && selectedActivityName) {
+                    loadActivityData(activitySelect.value);
+                }
+            });
         });
 
         async function loadActivities() {
@@ -198,8 +219,11 @@
                 // Add event listener for activity selection
                 select.addEventListener('change', function() {
                     if (this.value) {
+                        // Store the selected activity's display name
+                        selectedActivityName = this.options[this.selectedIndex].textContent;
                         loadActivityData(this.value);
                     } else {
+                        selectedActivityName = null;
                         if (chart) {
                             chart.destroy();
                             chart = null;
@@ -218,7 +242,8 @@
             hideError();
 
             try {
-                const response = await fetch(`/api/activity_data/${tcxid}`);
+                const smoothingValue = document.getElementById('smoothingSelect').value;
+                const response = await fetch(`/api/activity_data/${tcxid}?smoothing=${smoothingValue}`);
                 const data = await response.json();
 
                 if (response.ok) {
@@ -291,7 +316,7 @@
                     plugins: {
                         title: {
                             display: true,
-                            text: 'Activity Metrics Over Time',
+                            text: selectedActivityName || 'Activity Metrics Over Time',
                             font: {
                                 size: 18,
                                 weight: 'bold'

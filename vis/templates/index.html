@@ -32,28 +32,28 @@
             font-weight: 300;
         }
         .controls {
-            padding: 30px;
+            padding: 20px 30px;
             background: #f8f9fa;
             border-bottom: 1px solid #e9ecef;
         }
         .select-container {
             display: flex;
             align-items: center;
-            gap: 15px;
+            gap: 20px;
             flex-wrap: wrap;
         }
         label {
             font-weight: 600;
             color: #495057;
-            font-size: 1.1em;
+            font-size: 0.9em;
         }
         select {
-            padding: 12px 15px;
+            padding: 8px 12px;
             border: 2px solid #e9ecef;
-            border-radius: 8px;
+            border-radius: 6px;
             background: white;
-            font-size: 1em;
-            min-width: 300px;
+            font-size: 0.9em;
+            min-width: 200px;
             transition: border-color 0.3s ease;
         }
         select:focus {
@@ -132,12 +132,10 @@
 
         <div class="controls">
             <div class="select-container">
-                <label for="activitySelect">Select Activity:</label>
                 <select id="activitySelect">
                     <option value="">Choose an activity...</option>
                 </select>
-                
-                <label for="smoothingSelect">Smoothing:</label>
+
                 <select id="smoothingSelect">
                     <option value="1">No smoothing (1 sample)</option>
                     <option value="2" selected>Light smoothing (2 samples)</option>

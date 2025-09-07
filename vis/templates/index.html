@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Activity Data Visualization</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-annotation/2.2.1/chartjs-plugin-annotation.min.js"></script>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -260,6 +261,20 @@
         function createChart(data) {
             const ctx = document.getElementById('activityChart').getContext('2d');
 
+            // Calculate min and max heart rate values, starting from the 10th valid reading
+            const heartRateValues = data.heart_rate.filter(value => value !== null && value !== undefined && value > 0);
+            const heartRateValuesFromTenth = heartRateValues.slice(9); // Skip first 9 values (0-indexed)
+            
+            let minHeartRate, maxHeartRate;
+            if (heartRateValuesFromTenth.length > 0) {
+                minHeartRate = Math.min(...heartRateValuesFromTenth);
+                maxHeartRate = Math.max(...heartRateValuesFromTenth);
+            } else {
+                // Fallback if there aren't enough readings
+                minHeartRate = heartRateValues.length > 0 ? Math.min(...heartRateValues) : 0;
+                maxHeartRate = heartRateValues.length > 0 ? Math.max(...heartRateValues) : 0;
+            }
+
             // Destroy existing chart if it exists
             if (chart) {
                 chart.destroy();
@@ -323,6 +338,50 @@
                         },
                         legend: {
                             display: false // We have custom legend
+                        },
+                        annotation: {
+                            annotations: {
+                                maxHeartRateLine: {
+                                    type: 'line',
+                                    scaleID: 'y2',
+                                    value: maxHeartRate,
+                                    borderColor: '#e74c3c',
+                                    borderWidth: 2,
+                                    borderDash: [5, 5],
+                                    label: {
+                                        display: true,
+                                        content: `Max HR: ${maxHeartRate} bpm`,
+                                        position: 'start',
+                                        backgroundColor: '#e74c3c',
+                                        color: 'white',
+                                        font: {
+                                            size: 12,
+                                            weight: 'bold'
+                                        },
+                                        padding: 4
+                                    }
+                                },
+                                minHeartRateLine: {
+                                    type: 'line',
+                                    scaleID: 'y2',
+                                    value: minHeartRate,
+                                    borderColor: '#27ae60',
+                                    borderWidth: 2,
+                                    borderDash: [5, 5],
+                                    label: {
+                                        display: true,
+                                        content: `Min HR: ${minHeartRate} bpm`,
+                                        position: 'start',
+                                        backgroundColor: '#27ae60',
+                                        color: 'white',
+                                        font: {
+                                            size: 12,
+                                            weight: 'bold'
+                                        },
+                                        padding: 4
+                                    }
+                                }
+                            }
                         }
                     },
                     scales: {
@@ -343,6 +402,7 @@
                             type: 'linear',
                             display: true,
                             position: 'left',
+                            min: 0,
                             title: {
                                 display: true,
                                 text: 'Speed (km/h)',
@@ -387,7 +447,8 @@
                         mode: 'index',
                         intersect: false,
                     }
-                }
+                },
+                plugins: [window['chartjs-plugin-annotation']]
             });
         }
 

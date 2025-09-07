@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Activity Data Visualization</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+        .controls {
+            padding: 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .select-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        label {
+            font-weight: 600;
+            color: #495057;
+            font-size: 1.1em;
+        }
+        select {
+            padding: 12px 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            background: white;
+            font-size: 1em;
+            min-width: 300px;
+            transition: border-color 0.3s ease;
+        }
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .chart-container {
+            padding: 30px;
+            position: relative;
+            height: 500px;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 50px;
+            color: #6c757d;
+            font-size: 1.2em;
+        }
+        .error {
+            display: none;
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            margin: 20px;
+            border-radius: 5px;
+            border: 1px solid #f5c6cb;
+        }
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+            flex-wrap: wrap;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+        }
+        .legend-color {
+            width: 20px;
+            height: 3px;
+            border-radius: 2px;
+        }
+        .speed { background-color: #ff6b6b; }
+        .incline { background-color: #4ecdc4; }
+        .heart-rate { background-color: #45b7d1; }
+
+        @media (max-width: 768px) {
+            .select-container {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            select {
+                min-width: 100%;
+            }
+            .header h1 {
+                font-size: 2em;
+            }
+            .legend {
+                flex-direction: column;
+                align-items: center;
+                gap: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Activity Data Visualization</h1>
+        </div>
+
+        <div class="controls">
+            <div class="select-container">
+                <label for="activitySelect">Select Activity:</label>
+                <select id="activitySelect">
+                    <option value="">Choose an activity...</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="error" id="errorMessage"></div>
+        <div class="loading" id="loading">Loading chart data...</div>
+
+        <div class="chart-container">
+            <canvas id="activityChart"></canvas>
+        </div>
+
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color speed"></div>
+                <span>Speed (km/h)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color incline"></div>
+                <span>Incline (%)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color heart-rate"></div>
+                <span>Heart Rate (bpm)</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let chart = null;
+
+        // Load activities when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            loadActivities();
+        });
+
+        async function loadActivities() {
+            try {
+                const response = await fetch('/api/activities');
+                const activities = await response.json();
+
+                console.log('Activities response:', activities); // Debug output
+
+                if (!response.ok) {
+                    throw new Error(activities.error || 'Failed to fetch activities');
+                }
+
+                if (!Array.isArray(activities)) {
+                    throw new Error('Expected array of activities, got: ' + typeof activities);
+                }
+
+                const select = document.getElementById('activitySelect');
+                select.innerHTML = '<option value="">Choose an activity...</option>';
+
+                activities.forEach(activity => {
+                    const option = document.createElement('option');
+                    option.value = activity.tcxid;
+                    option.textContent = activity.display_name;
+                    select.appendChild(option);
+                });
+
+                // Add event listener for activity selection
+                select.addEventListener('change', function() {
+                    if (this.value) {
+                        loadActivityData(this.value);
+                    } else {
+                        if (chart) {
+                            chart.destroy();
+                            chart = null;
+                        }
+                    }
+                });
+
+            } catch (error) {
+                console.error('Error loading activities:', error);
+                showError('Failed to load activities: ' + error.message);
+            }
+        }
+
+        async function loadActivityData(tcxid) {
+            showLoading(true);
+            hideError();
+
+            try {
+                const response = await fetch(`/api/activity_data/${tcxid}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    createChart(data);
+                } else {
+                    showError(data.error || 'Failed to load activity data');
+                }
+
+            } catch (error) {
+                showError('Failed to load activity data: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function createChart(data) {
+            const ctx = document.getElementById('activityChart').getContext('2d');
+
+            // Destroy existing chart if it exists
+            if (chart) {
+                chart.destroy();
+            }
+
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.labels,
+                    datasets: [
+                        {
+                            label: 'Speed (km/h)',
+                            data: data.speed,
+                            borderColor: '#ff6b6b',
+                            backgroundColor: 'rgba(255, 107, 107, 0.1)',
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.1,
+                            pointRadius: 0,
+                            pointHoverRadius: 5,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Incline (%)',
+                            data: data.incline,
+                            borderColor: '#4ecdc4',
+                            backgroundColor: 'rgba(78, 205, 196, 0.1)',
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.1,
+                            pointRadius: 0,
+                            pointHoverRadius: 5,
+                            yAxisID: 'y1'
+                        },
+                        {
+                            label: 'Heart Rate (bpm)',
+                            data: data.heart_rate,
+                            borderColor: '#45b7d1',
+                            backgroundColor: 'rgba(69, 183, 209, 0.1)',
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.1,
+                            pointRadius: 0,
+                            pointHoverRadius: 5,
+                            yAxisID: 'y2'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Activity Metrics Over Time',
+                            font: {
+                                size: 18,
+                                weight: 'bold'
+                            },
+                            padding: 20
+                        },
+                        legend: {
+                            display: false // We have custom legend
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Time (minutes)',
+                                font: {
+                                    weight: 'bold'
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.1)'
+                            }
+                        },
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'Speed (km/h)',
+                                color: '#ff6b6b',
+                                font: {
+                                    weight: 'bold'
+                                }
+                            },
+                            ticks: {
+                                color: '#ff6b6b'
+                            },
+                            grid: {
+                                drawOnChartArea: false,
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: 'Incline (%)',
+                                color: '#4ecdc4',
+                                font: {
+                                    weight: 'bold'
+                                }
+                            },
+                            ticks: {
+                                color: '#4ecdc4'
+                            },
+                            grid: {
+                                drawOnChartArea: false,
+                            }
+                        },
+                        y2: {
+                            type: 'linear',
+                            display: false, // Hide this axis since we can't show 3 y-axes nicely
+                            position: 'right'
+                        }
+                    },
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    }
+                }
+            });
+        }
+
+        function showLoading(show) {
+            const loading = document.getElementById('loading');
+            loading.style.display = show ? 'block' : 'none';
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        function hideError() {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.style.display = 'none';
+        }
+    </script>
+</body>
+</html>

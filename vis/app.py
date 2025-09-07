@@ -34,7 +34,7 @@ def get_activities():
         query = """
         SELECT tcxid, activityid, sport, notes, lapstarttime
         FROM activity
-        ORDER BY CAST(lapstarttime AS TEXT) DESC
+        ORDER BY lapstarttime DESC
         """
 
         cur.execute(query)
@@ -60,9 +60,7 @@ def get_activities():
             sport = activity['sport'] or 'Unknown Sport'
             notes = activity['notes'] or ''
 
-            display_name = f"{formatted_time} - {sport}"
-            if notes:
-                display_name += f" ({notes[:30]}...)" if len(notes) > 30 else f" ({notes})"
+            display_name = f"{formatted_time} - {notes} ({sport})"
 
             formatted_activities.append({
                 'tcxid': activity['tcxid'],

@@ -26,8 +26,9 @@ SELECT tcx.tcxid AS tcxid,
             ARRAY[ARRAY['tcx', 'http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2']]))[1] AS Sport,
     (XPATH('/tcx:TrainingCenterDatabase/tcx:Activities/tcx:Activity/tcx:Notes/text()', body,
             ARRAY[ARRAY['tcx', 'http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2']]))[1] AS Notes,
-    (XPATH('/tcx:TrainingCenterDatabase/tcx:Activities/tcx:Activity/tcx:Lap/@StartTime', body,
-            ARRAY[ARRAY['tcx', 'http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2']]))[1] AS LapStartTime
+    to_timestamp(CAST((XPATH('/tcx:TrainingCenterDatabase/tcx:Activities/tcx:Activity/tcx:Lap/@StartTime', body,
+                ARRAY[ARRAY['tcx', 'http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2']]))[1] AS TEXT),
+            'YYYY-MM-DD"T"HH24:MI:SS"Z"')::timestamp AS LapStartTime
   FROM tcx;
 
 DROP TABLE IF EXISTS trackpoint CASCADE;

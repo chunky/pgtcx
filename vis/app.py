@@ -137,6 +137,92 @@ def get_activity_data(tcxid):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/activity_details/<int:tcxid>')
+def get_activity_details(tcxid):
+    """Get detailed information for a specific activity"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        query = """
+        SELECT 
+            sport,
+            notes,
+            lapstarttime,
+            totaltimeseconds,
+            distancemeters,
+            maximumspeed,
+            calories,
+            averageheartratebpm,
+            maximumheartratebpm,
+            intensity
+        FROM activity
+        WHERE tcxid = %s
+        """
+
+        cur.execute(query, (tcxid,))
+        activity = cur.fetchone()
+
+        if not activity:
+            return jsonify({'error': 'Activity not found'}), 404
+
+        # Format the activity details, filtering out null and zero values
+        details = {}
+        
+        if activity['sport']:
+            details['Sport'] = activity['sport']
+            
+        if activity['notes']:
+            details['Notes'] = activity['notes']
+            
+        if activity['lapstarttime']:
+            try:
+                dt = datetime.fromisoformat(activity['lapstarttime'].replace('Z', '+00:00'))
+                details['Start Time'] = dt.strftime('%Y-%m-%d %H:%M:%S')
+            except:
+                details['Start Time'] = str(activity['lapstarttime'])
+        
+        if activity['totaltimeseconds'] and activity['totaltimeseconds'] > 0:
+            # Convert seconds to hours:minutes:seconds format
+            total_seconds = int(activity['totaltimeseconds'])
+            hours = total_seconds // 3600
+            minutes = (total_seconds % 3600) // 60
+            seconds = total_seconds % 60
+            if hours > 0:
+                details['Total Time'] = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+            else:
+                details['Total Time'] = f"{minutes:02d}:{seconds:02d}"
+        
+        if activity['distancemeters'] and activity['distancemeters'] > 0:
+            # Convert meters to kilometers
+            distance_km = activity['distancemeters'] / 1000
+            details['Distance'] = f"{distance_km:.2f} km"
+        
+        if activity['maximumspeed'] and activity['maximumspeed'] > 0:
+            # Convert m/s to km/h
+            max_speed_kph = activity['maximumspeed'] * 3.6
+            details['Maximum Speed'] = f"{max_speed_kph:.2f} km/h"
+        
+        if activity['calories'] and activity['calories'] > 0:
+            details['Calories'] = f"{int(activity['calories'])}"
+        
+        if activity['averageheartratebpm'] and activity['averageheartratebpm'] > 0:
+            details['Average Heart Rate'] = f"{int(activity['averageheartratebpm'])} bpm"
+        
+        if activity['maximumheartratebpm'] and activity['maximumheartratebpm'] > 0:
+            details['Maximum Heart Rate'] = f"{int(activity['maximumheartratebpm'])} bpm"
+        
+        if activity['intensity']:
+            details['Intensity'] = activity['intensity']
+
+        cur.close()
+        conn.close()
+
+        return jsonify(details)
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 def apply_moving_average(data, window_size):
     """Apply moving average smoothing to a list of numbers"""
     if window_size <= 1 or len(data) < window_size:

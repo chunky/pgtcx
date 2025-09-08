@@ -61,10 +61,76 @@
             outline: none;
             border-color: #667eea;
         }
-        .chart-container {
+        .content-area {
+            display: flex;
+            gap: 20px;
             padding: 30px;
+        }
+        .chart-container {
+            flex: 2;
             position: relative;
             height: 500px;
+        }
+        .details-container {
+            flex: 1;
+            min-width: 300px;
+            max-width: 350px; /* Limit the width */
+        }
+        .activity-details {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px; /* Reduced padding */
+            border: 1px solid #e9ecef;
+            max-height: 500px; /* Limit height */
+            overflow-y: auto; /* Add scrolling if needed */
+        }
+        .activity-details h3 {
+            margin-top: 0;
+            margin-bottom: 15px; /* Reduced margin */
+            color: #495057;
+            font-size: 1.1em; /* Slightly smaller font */
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 8px; /* Reduced padding */
+        }
+        .details-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85em; /* Smaller font size */
+        }
+        .details-table tr:nth-child(even) {
+            background-color: #ffffff;
+        }
+        .details-table td {
+            padding: 6px 8px; /* Reduced padding */
+            border-bottom: 1px solid #e9ecef;
+            vertical-align: top;
+            line-height: 1.3; /* Tighter line height */
+        }
+        .details-table td:first-child {
+            font-weight: 600;
+            color: #495057;
+            width: 45%; /* Adjusted width ratio */
+            font-size: 0.8em; /* Even smaller for labels */
+        }
+        .details-table td:last-child {
+            color: #6c757d;
+            word-break: break-word; /* Break long words */
+        }
+
+        /* Make the table collapsible on smaller screens */
+        @media (max-width: 1200px) {
+            .details-container {
+                max-width: 300px;
+            }
+            .activity-details {
+                padding: 12px;
+            }
+            .details-table {
+                font-size: 0.8em;
+            }
+            .details-table td {
+                padding: 4px 6px;
+            }
         }
         .loading {
             display: none;
@@ -123,6 +189,45 @@
                 gap: 15px;
             }
         }
+
+        @media (max-width: 1024px) {
+            .content-area {
+                flex-direction: column;
+            }
+            .chart-container {
+                flex: none;
+                height: 400px;
+            }
+            .details-container {
+                flex: none;
+                min-width: auto;
+                max-width: none;
+            }
+            .activity-details {
+                max-height: 200px; /* Smaller height on mobile */
+            }
+        }
+
+        @media (max-width: 768px) {
+            .select-container {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            select {
+                min-width: 100%;
+            }
+            .header h1 {
+                font-size: 2em;
+            }
+            .legend {
+                flex-direction: column;
+                align-items: center;
+                gap: 15px;
+            }
+            .content-area {
+                padding: 20px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -151,8 +256,24 @@
         <div class="error" id="errorMessage"></div>
         <div class="loading" id="loading">Loading chart data...</div>
 
-        <div class="chart-container">
-            <canvas id="activityChart"></canvas>
+        <div class="content-area">
+            <div class="chart-container">
+                <canvas id="activityChart"></canvas>
+            </div>
+
+            <div class="details-container">
+                <div class="activity-details" id="activityDetails" style="display: none;">
+                    <h3 onclick="toggleDetails()" style="cursor: pointer; user-select: none;">
+                        Activity Details
+                        <span id="toggleIcon" style="float: right; font-size: 0.8em;">▼</span>
+                    </h3>
+                    <div id="detailsContent">
+                        <table class="details-table" id="detailsTable">
+                            <!-- Activity details will be populated here -->
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="legend">
@@ -221,12 +342,14 @@
                         // Store the selected activity's display name
                         selectedActivityName = this.options[this.selectedIndex].textContent;
                         loadActivityData(this.value);
+                        loadActivityDetails(this.value);
                     } else {
                         selectedActivityName = null;
                         if (chart) {
                             chart.destroy();
                             chart = null;
                         }
+                        hideActivityDetails();
                     }
                 });
 
@@ -256,6 +379,101 @@
             } finally {
                 showLoading(false);
             }
+        }
+
+        async function loadActivityDetails(tcxid) {
+            try {
+                console.log('Loading activity details for tcxid:', tcxid); // Debug log
+                const response = await fetch(`/api/activity_details/${tcxid}`);
+                const details = await response.json();
+
+                console.log('Activity details response:', response.status, details); // Debug log
+
+                if (response.ok) {
+                    displayActivityDetails(details);
+                } else {
+                    console.error('Failed to load activity details:', details.error);
+                    // Don't show error for details - it's supplementary information
+                }
+
+            } catch (error) {
+                console.error('Failed to load activity details:', error.message);
+                // Don't show error for details - it's supplementary information
+            }
+        }
+
+        function toggleDetails() {
+            const content = document.getElementById('detailsContent');
+            const icon = document.getElementById('toggleIcon');
+            
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                icon.textContent = '▼';
+            } else {
+                content.style.display = 'none';
+                icon.textContent = '▶';
+            }
+        }
+
+        function displayActivityDetails(details) {
+            console.log('Displaying activity details:', details); // Debug log
+            const detailsContainer = document.getElementById('activityDetails');
+            const detailsTable = document.getElementById('detailsTable');
+
+            // Clear existing content
+            detailsTable.innerHTML = '';
+
+            // Check if we have any details to display
+            if (Object.keys(details).length === 0) {
+                console.log('No details to display');
+                detailsContainer.style.display = 'none';
+                return;
+            }
+
+            // Populate table with details - prioritize most important info first
+            const priorityOrder = [
+                'Sport', 'Total Time', 'Distance', 'Maximum Speed', 
+                'Average Heart Rate', 'Maximum Heart Rate', 'Calories',
+                'Start Time', 'Intensity', 'Notes'
+            ];
+
+            // Add priority items first
+            priorityOrder.forEach(key => {
+                if (details[key]) {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${key}</td>
+                        <td>${details[key]}</td>
+                    `;
+                    detailsTable.appendChild(row);
+                }
+            });
+
+            // Add any remaining items
+            Object.entries(details).forEach(([key, value]) => {
+                if (!priorityOrder.includes(key)) {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${key}</td>
+                        <td>${value}</td>
+                    `;
+                    detailsTable.appendChild(row);
+                }
+            });
+
+            // Show the details container
+            detailsContainer.style.display = 'block';
+            
+            // Make sure the content is initially visible
+            document.getElementById('detailsContent').style.display = 'block';
+            document.getElementById('toggleIcon').textContent = '▼';
+            
+            console.log('Details container shown');
+        }
+
+        function hideActivityDetails() {
+            const detailsContainer = document.getElementById('activityDetails');
+            detailsContainer.style.display = 'none';
         }
 
         function createChart(data) {

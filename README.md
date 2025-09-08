@@ -9,6 +9,11 @@ files for all the workouts I've done on it.
 I wanted a good way to consume and touch the data in them, and hadn't
 experimented with Postgres' XML functionality before.
 
+My treadmill in particular is a NordicTrack. TCX files are downloadable
+from iFit here: https://www.ifit.com/settings/export-workouts
+I've only tested this with files I got there; the XML format clearly
+can do more than I am accounting for in this code.
+
 ## How?
 
 1. Edit ```postgres_connection.sh``` to configure your postgres connection [Example database setup below]

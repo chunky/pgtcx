@@ -120,3 +120,93 @@ CREATE VIEW speeds_dists AS
     FROM trackpoint A
         INNER JOIN trackpoint B ON B.tcxid=A.tcxid AND B.ordinality=A.ordinality+1;
 
+DROP VIEW IF EXISTS speed_incline_vs_hr_lagged CASCADE;
+CREATE VIEW speed_incline_vs_hr_lagged AS
+WITH time_lagged_analysis AS (
+    SELECT
+        a.tcxid,
+        a.ordinality,
+        a.speed_kph,
+        a.gradient,
+        a.avg_heartrate_bpm,
+        a.time as current_time,
+        -- Find heart rate values at different time lags
+        (SELECT avg_heartrate_bpm
+         FROM speeds_dists b
+         WHERE b.tcxid = a.tcxid
+           AND b.time <= a.time - INTERVAL '30 seconds'
+         ORDER BY b.time DESC
+         LIMIT 1) as hr_30s_ago,
+        (SELECT avg_heartrate_bpm
+         FROM speeds_dists b
+         WHERE b.tcxid = a.tcxid
+           AND b.time <= a.time - INTERVAL '60 seconds'
+         ORDER BY b.time DESC
+         LIMIT 1) as hr_60s_ago,
+        (SELECT avg_heartrate_bpm
+         FROM speeds_dists b
+         WHERE b.tcxid = a.tcxid
+           AND b.time <= a.time - INTERVAL '120 seconds'
+         ORDER BY b.time DESC
+         LIMIT 1) as hr_120s_ago
+    FROM speeds_dists a
+    WHERE a.speed_kph > 0 AND a.avg_heartrate_bpm > 0
+),
+time_lag_correlations AS (
+    SELECT
+        tcxid,
+        COUNT(*) as data_points,
+        CORR(speed_kph, avg_heartrate_bpm) as current_corr,
+        CORR(speed_kph, hr_30s_ago) as lag_30s_corr,
+        CORR(speed_kph, hr_60s_ago) as lag_60s_corr,
+        CORR(speed_kph, hr_120s_ago) as lag_120s_corr,
+        -- Same for gradient
+        CORR(gradient, avg_heartrate_bpm) as gradient_current_corr,
+        CORR(gradient, hr_30s_ago) as gradient_lag_30s_corr,
+        CORR(gradient, hr_60s_ago) as gradient_lag_60s_corr,
+        CORR(gradient, hr_120s_ago) as gradient_lag_120s_corr
+    FROM time_lagged_analysis
+    WHERE hr_30s_ago IS NOT NULL
+    GROUP BY tcxid
+    HAVING COUNT(*) > 50
+)
+SELECT *,
+    GREATEST(current_corr, lag_30s_corr, lag_60s_corr, lag_120s_corr) as best_speed_correlation,
+    CASE
+        WHEN current_corr = GREATEST(current_corr, lag_30s_corr, lag_60s_corr, lag_120s_corr) THEN 'No lag'
+        WHEN lag_30s_corr = GREATEST(current_corr, lag_30s_corr, lag_60s_corr, lag_120s_corr) THEN '30s lag'
+        WHEN lag_60s_corr = GREATEST(current_corr, lag_30s_corr, lag_60s_corr, lag_120s_corr) THEN '60s lag'
+        WHEN lag_120s_corr = GREATEST(current_corr, lag_30s_corr, lag_60s_corr, lag_120s_corr) THEN '120s lag'
+    END as optimal_speed_lag
+FROM time_lag_correlations;
+
+DROP VIEW IF EXISTS regression_speed_incline_vs_hr CASCADE;
+CREATE VIEW regression_speed_incline_vs_hr AS
+WITH regression_analysis AS (
+    SELECT
+        tcxid,
+        COUNT(*) as observations,
+        -- Speed vs Heart Rate regression
+        REGR_SLOPE(avg_heartrate_bpm, speed_kph) as speed_hr_slope,
+        REGR_INTERCEPT(avg_heartrate_bpm, speed_kph) as speed_hr_intercept,
+        REGR_R2(avg_heartrate_bpm, speed_kph) as speed_hr_r_squared,
+        -- Gradient vs Heart Rate regression
+        REGR_SLOPE(avg_heartrate_bpm, gradient) as gradient_hr_slope,
+        REGR_INTERCEPT(avg_heartrate_bpm, gradient) as gradient_hr_intercept,
+        REGR_R2(avg_heartrate_bpm, gradient) as gradient_hr_r_squared,
+        -- Multiple regression components (for manual calculation)
+        REGR_SXX(avg_heartrate_bpm, speed_kph) as speed_sxx,
+        REGR_SYY(avg_heartrate_bpm, speed_kph) as speed_syy,
+        REGR_SXY(avg_heartrate_bpm, speed_kph) as speed_sxy
+    FROM speeds_dists
+    WHERE speed_kph > 0 AND avg_heartrate_bpm > 0 AND gradient IS NOT NULL
+    GROUP BY tcxid
+    HAVING COUNT(*) > 10
+)
+SELECT *,
+    CASE
+        WHEN speed_hr_r_squared > gradient_hr_r_squared THEN 'Speed explains HR better'
+        WHEN gradient_hr_r_squared > speed_hr_r_squared THEN 'Gradient explains HR better'
+        ELSE 'Similar explanatory power'
+    END as better_predictor
+FROM regression_analysis;

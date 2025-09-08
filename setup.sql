@@ -21,14 +21,28 @@ DROP VIEW IF EXISTS activity CASCADE;
 CREATE VIEW activity AS
 SELECT tcx.tcxid AS tcxid,
     (XPATH('/tcx:TrainingCenterDatabase/tcx:Activities/tcx:Activity/tcx:Id/text()', body,
-            ARRAY[ARRAY['tcx', 'http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2']]))[1] AS activityid,
+            ARRAY[ARRAY['tcx', 'http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2']]))[1]::text AS activityid,
     (XPATH('/tcx:TrainingCenterDatabase/tcx:Activities/tcx:Activity/@Sport', body,
-            ARRAY[ARRAY['tcx', 'http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2']]))[1] AS Sport,
+            ARRAY[ARRAY['tcx', 'http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2']]))[1]::text AS Sport,
     (XPATH('/tcx:TrainingCenterDatabase/tcx:Activities/tcx:Activity/tcx:Notes/text()', body,
-            ARRAY[ARRAY['tcx', 'http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2']]))[1] AS Notes,
+            ARRAY[ARRAY['tcx', 'http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2']]))[1]::text AS Notes,
     to_timestamp(CAST((XPATH('/tcx:TrainingCenterDatabase/tcx:Activities/tcx:Activity/tcx:Lap/@StartTime', body,
                 ARRAY[ARRAY['tcx', 'http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2']]))[1] AS TEXT),
-            'YYYY-MM-DD"T"HH24:MI:SS"Z"')::timestamp AS LapStartTime
+            'YYYY-MM-DD"T"HH24:MI:SS"Z"')::timestamp AS LapStartTime,
+    (XPATH('/tcx:TrainingCenterDatabase/tcx:Activities/tcx:Activity/tcx:Lap/tcx:TotalTimeSeconds/text()', body,
+            ARRAY[ARRAY['tcx', 'http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2']]))[1]::text::real AS TotalTimeSeconds,
+    (XPATH('/tcx:TrainingCenterDatabase/tcx:Activities/tcx:Activity/tcx:Lap/tcx:DistanceMeters/text()', body,
+            ARRAY[ARRAY['tcx', 'http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2']]))[1]::text::real AS DistanceMeters,
+    (XPATH('/tcx:TrainingCenterDatabase/tcx:Activities/tcx:Activity/tcx:Lap/tcx:MaximumSpeed/text()', body,
+            ARRAY[ARRAY['tcx', 'http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2']]))[1]::text::real AS MaximumSpeed,
+    (XPATH('/tcx:TrainingCenterDatabase/tcx:Activities/tcx:Activity/tcx:Lap/tcx:Calories/text()', body,
+            ARRAY[ARRAY['tcx', 'http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2']]))[1]::text::real AS Calories,
+    (XPATH('/tcx:TrainingCenterDatabase/tcx:Activities/tcx:Activity/tcx:Lap/tcx:AverageHeartRateBpm/tcx:Value/text()', body,
+            ARRAY[ARRAY['tcx', 'http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2']]))[1]::text::real AS AverageHeartRateBpm,
+    (XPATH('/tcx:TrainingCenterDatabase/tcx:Activities/tcx:Activity/tcx:Lap/tcx:MaximumHeartRateBpm/tcx:Value/text()', body,
+        ARRAY[ARRAY['tcx', 'http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2']]))[1]::text::real AS MaximumHeartRateBpm,
+    (XPATH('/tcx:TrainingCenterDatabase/tcx:Activities/tcx:Activity/tcx:Lap/tcx:Intensity/text()', body,
+            ARRAY[ARRAY['tcx', 'http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2']]))[1]::text AS Intensity
   FROM tcx;
 
 DROP TABLE IF EXISTS trackpoint CASCADE;

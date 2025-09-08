@@ -22,5 +22,11 @@ createuser --pwprompt pgtcx
 createdb -O pgtcx pgtcx
 ```
 
+## Then what?
+
+Run ```python3 app.py``` in vis
+
+<img src="readme_imgs/chart.png" width="90%">
+
 Gary <chunkyks@gmail.com>
 

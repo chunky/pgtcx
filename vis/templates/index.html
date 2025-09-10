@@ -148,8 +148,8 @@
         
         /* Calendar view styles */
         .calendar-container {
-            width: 100%;
-            padding: 20px;
+            width: 90%;
+            margin: 10px;
         }
         .calendar-controls {
             display: flex;
@@ -582,7 +582,7 @@
             
             activities.forEach(activity => {
                 // Sample data points to avoid overcrowding in small charts
-                const sampleRate = Math.max(1, Math.floor(activity.speed.length / 20));
+                const sampleRate = Math.max(1, Math.floor(activity.speed.length / 50));
                 for (let i = 0; i < activity.speed.length; i += sampleRate) {
                     allSpeedData.push(activity.speed[i]);
                     allInclineData.push(activity.incline[i]);

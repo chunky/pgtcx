@@ -580,6 +580,26 @@
                         },
                         tooltip: {
                             enabled: false
+                        },
+                        annotation: {
+                            annotations: {
+                                speedZeroLine: {
+                                    type: 'line',
+                                    scaleID: 'y',
+                                    value: 0,
+                                    borderColor: '#ff6b6b',
+                                    borderWidth: 1,
+                                    borderDash: [3, 3]
+                                },
+                                inclineZeroLine: {
+                                    type: 'line',
+                                    scaleID: 'y',
+                                    value: 0,
+                                    borderColor: '#4ecdc4',
+                                    borderWidth: 1,
+                                    borderDash: [5, 2]
+                                }
+                            }
                         }
                     },
                     scales: {
@@ -597,12 +617,45 @@
                             borderWidth: 1
                         }
                     },
-                    animation: false
+                    animation: false,
+                    onClick: function(evt, activeElements) {
+                        // When clicked, switch to chart view and select the most recent activity from this day
+                        if (activities.length > 0) {
+                            const mostRecentActivity = activities[activities.length - 1]; // Last activity in the array
+                            navigateToChartView(mostRecentActivity.tcxid);
+                        }
+                    },
+                    onHover: function(event, elements) {
+                        event.native.target.style.cursor = 'pointer';
+                    }
                 }
             });
+
+            // Also make the canvas clickable for better UX
+            canvas.style.cursor = 'pointer';
+            canvas.title = `Click to view detailed chart (${activities.length} activity${activities.length > 1 ? 'ies' : ''})`;
         }
 
-        // ... existing functions (loadActivities, loadActivityData, etc.) ...
+        function navigateToChartView(tcxid) {
+            // Switch to chart view
+            switchView('chart');
+            
+            // Find and select the activity in the dropdown
+            const activitySelect = document.getElementById('activitySelect');
+            
+            // Set the dropdown value
+            activitySelect.value = tcxid;
+            
+            // Find the selected option text for the activity name
+            const selectedOption = activitySelect.options[activitySelect.selectedIndex];
+            selectedActivityName = selectedOption ? selectedOption.textContent : null;
+            
+            // Load the activity data and details
+            if (tcxid) {
+                loadActivityData(tcxid);
+                loadActivityDetails(tcxid);
+            }
+        }
 
         async function loadActivities() {
             try {

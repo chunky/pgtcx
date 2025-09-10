@@ -316,12 +316,12 @@ def get_monthly_data(year, month):
         # Calculate global min/max for consistent scaling
         if all_speed_values:
             monthly_data['min_values'] = {
-                'speed': min(all_speed_values),
-                'incline': min(all_incline_values) if all_incline_values else 0
+                'speed': 0,
+                'incline': max(min(all_incline_values) if all_incline_values else 0, -10)
             }
             monthly_data['max_values'] = {
-                'speed': max(all_speed_values),
-                'incline': max(all_incline_values) if all_incline_values else 0
+                'speed': min(max(all_speed_values), 20),
+                'incline': min(max(all_incline_values) if all_incline_values else 0, 20)
             }
         else:
             monthly_data['min_values'] = {'speed': 0, 'incline': 0}

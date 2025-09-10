@@ -332,9 +332,25 @@
                 </select>
 
                 <div class="calendar-controls" style="display: none;">
-                    <button onclick="changeMonth(-1)">← Previous Month</button>
-                    <h3 id="currentMonth"></h3>
-                    <button onclick="changeMonth(1)">Next Month →</button>
+                    <button onclick="changeMonth(-1)">← Previous</button>
+                    <select id="monthSelect" onchange="onMonthYearChange()">
+                        <option value="0">January</option>
+                        <option value="1">February</option>
+                        <option value="2">March</option>
+                        <option value="3">April</option>
+                        <option value="4">May</option>
+                        <option value="5">June</option>
+                        <option value="6">July</option>
+                        <option value="7">August</option>
+                        <option value="8">September</option>
+                        <option value="9">October</option>
+                        <option value="10">November</option>
+                        <option value="11">December</option>
+                    </select>
+                    <select id="yearSelect" onchange="onMonthYearChange()">
+                        <!-- Years will be populated dynamically -->
+                    </select>
+                    <button onclick="changeMonth(1)">Next →</button>
                 </div>
             </div>
         </div>
@@ -418,13 +434,51 @@
                 activitySelect.style.display = 'none';
                 smoothingSelect.style.display = 'none';
                 calendarControls.style.display = 'flex';
+                initializeCalendarControls();
                 loadCalendarData();
             }
         }
 
         function changeMonth(delta) {
             currentDate.setMonth(currentDate.getMonth() + delta);
+            updateCalendarControls();
             loadCalendarData();
+        }
+
+        function onMonthYearChange() {
+            const monthSelect = document.getElementById('monthSelect');
+            const yearSelect = document.getElementById('yearSelect');
+            
+            currentDate.setFullYear(parseInt(yearSelect.value));
+            currentDate.setMonth(parseInt(monthSelect.value));
+            loadCalendarData();
+        }
+
+        function updateCalendarControls() {
+            const monthSelect = document.getElementById('monthSelect');
+            const yearSelect = document.getElementById('yearSelect');
+            
+            // Update month dropdown
+            monthSelect.value = currentDate.getMonth().toString();
+            
+            // Update year dropdown
+            yearSelect.value = currentDate.getFullYear().toString();
+        }
+
+        function initializeCalendarControls() {
+            const yearSelect = document.getElementById('yearSelect');
+            const currentYear = new Date().getFullYear();
+
+            yearSelect.innerHTML = '';
+            for (let year = currentYear - 5; year <= currentYear; year++) {
+                const option = document.createElement('option');
+                option.value = year.toString();
+                option.textContent = year.toString();
+                yearSelect.appendChild(option);
+            }
+            
+            // Set initial values
+            updateCalendarControls();
         }
 
         async function loadCalendarData() {
@@ -452,12 +506,6 @@
         }
 
         function createCalendar() {
-            const monthNames = ["January", "February", "March", "April", "May", "June",
-                "July", "August", "September", "October", "November", "December"];
-            
-            document.getElementById('currentMonth').textContent = 
-                `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
-
             const calendarGrid = document.getElementById('calendarGrid');
             calendarGrid.innerHTML = '';
 

@@ -250,5 +250,90 @@ def apply_moving_average(data, window_size):
     
     return smoothed
 
+@app.route('/api/monthly_data/<int:year>/<int:month>')
+def get_monthly_data(year, month):
+    """Get speed and incline data for all activities in a specific month"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        # First, get all activities for the month
+        query = """
+        SELECT tcxid, lapstarttime, notes
+        FROM activity
+        WHERE EXTRACT(YEAR FROM lapstarttime) = %s
+        AND EXTRACT(MONTH FROM lapstarttime) = %s
+        ORDER BY lapstarttime
+        """
+
+        cur.execute(query, (year, month))
+        activities = cur.fetchall()
+
+        if not activities:
+            return jsonify({'activities': {}, 'min_values': {}, 'max_values': {}})
+
+        monthly_data = {'activities': {}, 'min_values': {}, 'max_values': {}}
+        all_speed_values = []
+        all_incline_values = []
+
+        for activity in activities:
+            tcxid = activity['tcxid']
+            activity_date = activity['lapstarttime'].date()
+            day_key = activity_date.strftime('%Y-%m-%d')
+
+            # Get speed and incline data for this activity
+            data_query = """
+            SELECT speed_kph, gradient
+            FROM speeds_dists
+            WHERE tcxid = %s
+            AND speed_kph IS NOT NULL
+            AND speed_kph > 0
+            ORDER BY time
+            """
+
+            cur.execute(data_query, (tcxid,))
+            data = cur.fetchall()
+
+            if data:
+                speeds = [row['speed_kph'] for row in data if row['speed_kph'] is not None]
+                inclines = [row['gradient'] or 0 for row in data]
+
+                # Store data for this day
+                if day_key not in monthly_data['activities']:
+                    monthly_data['activities'][day_key] = []
+
+                monthly_data['activities'][day_key].append({
+                    'tcxid': tcxid,
+                    'notes': activity['notes'] or '',
+                    'speed': speeds,
+                    'incline': inclines
+                })
+
+                # Collect all values for min/max calculation
+                all_speed_values.extend(speeds)
+                all_incline_values.extend(inclines)
+
+        # Calculate global min/max for consistent scaling
+        if all_speed_values:
+            monthly_data['min_values'] = {
+                'speed': min(all_speed_values),
+                'incline': min(all_incline_values) if all_incline_values else 0
+            }
+            monthly_data['max_values'] = {
+                'speed': max(all_speed_values),
+                'incline': max(all_incline_values) if all_incline_values else 0
+            }
+        else:
+            monthly_data['min_values'] = {'speed': 0, 'incline': 0}
+            monthly_data['max_values'] = {'speed': 10, 'incline': 10}
+
+        cur.close()
+        conn.close()
+
+        return jsonify(monthly_data)
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.run(debug=True)

@@ -61,6 +61,35 @@
             outline: none;
             border-color: #667eea;
         }
+        button {
+            padding: 8px 16px;
+            border: 2px solid #667eea;
+            border-radius: 6px;
+            background: #667eea;
+            color: white;
+            font-size: 0.9em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        button:hover {
+            background: #5a67d8;
+            border-color: #5a67d8;
+        }
+        .view-toggle {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .view-toggle button {
+            background: #e9ecef;
+            color: #495057;
+            border-color: #e9ecef;
+        }
+        .view-toggle button.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
         .content-area {
             display: flex;
             gap: 20px;
@@ -74,47 +103,114 @@
         .details-container {
             flex: 1;
             min-width: 300px;
-            max-width: 350px; /* Limit the width */
+            max-width: 350px;
         }
         .activity-details {
             background: #f8f9fa;
             border-radius: 8px;
-            padding: 15px; /* Reduced padding */
+            padding: 15px;
             border: 1px solid #e9ecef;
-            max-height: 500px; /* Limit height */
-            overflow-y: auto; /* Add scrolling if needed */
+            max-height: 500px;
+            overflow-y: auto;
         }
         .activity-details h3 {
             margin-top: 0;
-            margin-bottom: 15px; /* Reduced margin */
+            margin-bottom: 15px;
             color: #495057;
-            font-size: 1.1em; /* Slightly smaller font */
+            font-size: 1.1em;
             border-bottom: 2px solid #667eea;
-            padding-bottom: 8px; /* Reduced padding */
+            padding-bottom: 8px;
         }
         .details-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.85em; /* Smaller font size */
+            font-size: 0.85em;
         }
         .details-table tr:nth-child(even) {
             background-color: #ffffff;
         }
         .details-table td {
-            padding: 6px 8px; /* Reduced padding */
+            padding: 6px 8px;
             border-bottom: 1px solid #e9ecef;
             vertical-align: top;
-            line-height: 1.3; /* Tighter line height */
+            line-height: 1.3;
         }
         .details-table td:first-child {
             font-weight: 600;
             color: #495057;
-            width: 45%; /* Adjusted width ratio */
-            font-size: 0.8em; /* Even smaller for labels */
+            width: 45%;
+            font-size: 0.8em;
         }
         .details-table td:last-child {
             color: #6c757d;
-            word-break: break-word; /* Break long words */
+            word-break: break-word;
+        }
+        
+        /* Calendar view styles */
+        .calendar-container {
+            width: 100%;
+            padding: 20px;
+        }
+        .calendar-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 1px;
+            background: #e9ecef;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .calendar-header {
+            background: #667eea;
+            color: white;
+            padding: 10px 5px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+        .calendar-day {
+            background: white;
+            min-height: 120px;
+            padding: 5px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+        .calendar-day.other-month {
+            background: #f8f9fa;
+            color: #adb5bd;
+        }
+        .day-number {
+            font-weight: 600;
+            font-size: 0.8em;
+            margin-bottom: 5px;
+            color: #495057;
+        }
+        .calendar-day.other-month .day-number {
+            color: #adb5bd;
+        }
+        .day-chart {
+            flex: 1;
+            position: relative;
+            min-height: 80px;
+        }
+        .day-chart canvas {
+            width: 100% !important;
+            height: 80px !important;
+        }
+        .no-data {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #adb5bd;
+            font-size: 0.7em;
+            text-align: center;
+            flex: 1;
         }
 
         /* Make the table collapsible on smaller screens */
@@ -132,21 +228,23 @@
                 padding: 4px 6px;
             }
         }
-        .loading {
-            display: none;
-            text-align: center;
-            padding: 50px;
-            color: #6c757d;
-            font-size: 1.2em;
-        }
-        .error {
-            display: none;
-            background: #f8d7da;
-            color: #721c24;
-            padding: 15px;
-            margin: 20px;
-            border-radius: 5px;
-            border: 1px solid #f5c6cb;
+
+        @media (max-width: 1024px) {
+            .content-area {
+                flex-direction: column;
+            }
+            .chart-container {
+                flex: none;
+                height: 400px;
+            }
+            .details-container {
+                flex: none;
+                min-width: auto;
+                max-width: none;
+            }
+            .activity-details {
+                max-height: 200px;
+            }
         }
 
         @media (max-width: 768px) {
@@ -214,12 +312,17 @@
         </div>
 
         <div class="controls">
+            <div class="view-toggle">
+                <button id="chartViewBtn" class="active" onclick="switchView('chart')">Chart View</button>
+                <button id="calendarViewBtn" onclick="switchView('calendar')">Calendar View</button>
+            </div>
+
             <div class="select-container">
-                <select id="activitySelect">
+                <select id="activitySelect" style="display: block;">
                     <option value="">Choose an activity...</option>
                 </select>
 
-                <select id="smoothingSelect">
+                <select id="smoothingSelect" style="display: block;">
                     <option value="1">No smoothing (1 sample)</option>
                     <option value="2" selected>Light smoothing (2 samples)</option>
                     <option value="3">Medium smoothing (3 samples)</option>
@@ -227,13 +330,19 @@
                     <option value="5">Very heavy smoothing (5 samples)</option>
                     <option value="10">Maximum smoothing (10 samples)</option>
                 </select>
+
+                <div class="calendar-controls" style="display: none;">
+                    <button onclick="changeMonth(-1)">← Previous Month</button>
+                    <h3 id="currentMonth"></h3>
+                    <button onclick="changeMonth(1)">Next Month →</button>
+                </div>
             </div>
         </div>
 
         <div class="error" id="errorMessage"></div>
-        <div class="loading" id="loading">Loading chart data...</div>
+        <div class="loading" id="loading">Loading data...</div>
 
-        <div class="content-area">
+        <div class="content-area" id="chartContent">
             <div class="chart-container">
                 <canvas id="activityChart"></canvas>
             </div>
@@ -252,11 +361,21 @@
                 </div>
             </div>
         </div>
+
+        <div class="calendar-container" id="calendarContent" style="display: none;">
+            <div class="calendar-grid" id="calendarGrid">
+                <!-- Calendar will be populated here -->
+            </div>
+        </div>
     </div>
 
     <script>
         let chart = null;
         let selectedActivityName = null;
+        let currentView = 'chart';
+        let currentDate = new Date();
+        let monthlyData = null;
+        let dayCharts = {};
 
         // Load activities when page loads
         document.addEventListener('DOMContentLoaded', function() {
@@ -265,7 +384,6 @@
             // Add event listener for smoothing selection
             const smoothingSelect = document.getElementById('smoothingSelect');
             smoothingSelect.addEventListener('change', function() {
-                // Reload chart data with new smoothing if an activity is selected
                 const activitySelect = document.getElementById('activitySelect');
                 if (activitySelect.value && selectedActivityName) {
                     loadActivityData(activitySelect.value);
@@ -273,12 +391,225 @@
             });
         });
 
+        function switchView(view) {
+            currentView = view;
+            
+            const chartViewBtn = document.getElementById('chartViewBtn');
+            const calendarViewBtn = document.getElementById('calendarViewBtn');
+            const chartContent = document.getElementById('chartContent');
+            const calendarContent = document.getElementById('calendarContent');
+            const activitySelect = document.getElementById('activitySelect');
+            const smoothingSelect = document.getElementById('smoothingSelect');
+            const calendarControls = document.querySelector('.calendar-controls');
+
+            if (view === 'chart') {
+                chartViewBtn.classList.add('active');
+                calendarViewBtn.classList.remove('active');
+                chartContent.style.display = 'flex';
+                calendarContent.style.display = 'none';
+                activitySelect.style.display = 'block';
+                smoothingSelect.style.display = 'block';
+                calendarControls.style.display = 'none';
+            } else {
+                chartViewBtn.classList.remove('active');
+                calendarViewBtn.classList.add('active');
+                chartContent.style.display = 'none';
+                calendarContent.style.display = 'block';
+                activitySelect.style.display = 'none';
+                smoothingSelect.style.display = 'none';
+                calendarControls.style.display = 'flex';
+                loadCalendarData();
+            }
+        }
+
+        function changeMonth(delta) {
+            currentDate.setMonth(currentDate.getMonth() + delta);
+            loadCalendarData();
+        }
+
+        async function loadCalendarData() {
+            showLoading(true);
+            hideError();
+
+            try {
+                const year = currentDate.getFullYear();
+                const month = currentDate.getMonth() + 1;
+                
+                const response = await fetch(`/api/monthly_data/${year}/${month}`);
+                monthlyData = await response.json();
+
+                if (response.ok) {
+                    createCalendar();
+                } else {
+                    showError(monthlyData.error || 'Failed to load calendar data');
+                }
+
+            } catch (error) {
+                showError('Failed to load calendar data: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function createCalendar() {
+            const monthNames = ["January", "February", "March", "April", "May", "June",
+                "July", "August", "September", "October", "November", "December"];
+            
+            document.getElementById('currentMonth').textContent = 
+                `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+
+            const calendarGrid = document.getElementById('calendarGrid');
+            calendarGrid.innerHTML = '';
+
+            // Add day headers
+            const dayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            dayHeaders.forEach(day => {
+                const header = document.createElement('div');
+                header.className = 'calendar-header';
+                header.textContent = day;
+                calendarGrid.appendChild(header);
+            });
+
+            // Get first day of month and number of days
+            const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+            const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+            const daysInMonth = lastDay.getDate();
+            const startingDayOfWeek = firstDay.getDay();
+
+            // Add empty cells for days before the month starts
+            for (let i = 0; i < startingDayOfWeek; i++) {
+                const dayCell = document.createElement('div');
+                dayCell.className = 'calendar-day other-month';
+                calendarGrid.appendChild(dayCell);
+            }
+
+            // Add days of the month
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dayCell = document.createElement('div');
+                dayCell.className = 'calendar-day';
+                
+                const dayNumber = document.createElement('div');
+                dayNumber.className = 'day-number';
+                dayNumber.textContent = day;
+                dayCell.appendChild(dayNumber);
+
+                const chartContainer = document.createElement('div');
+                chartContainer.className = 'day-chart';
+                
+                const dayKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                
+                if (monthlyData.activities[dayKey] && monthlyData.activities[dayKey].length > 0) {
+                    const canvas = document.createElement('canvas');
+                    canvas.id = `chart-${dayKey}`;
+                    chartContainer.appendChild(canvas);
+                    
+                    // Create small chart for this day
+                    setTimeout(() => createDayChart(dayKey, monthlyData.activities[dayKey]), 10);
+                } else {
+                    const noData = document.createElement('div');
+                    noData.className = 'no-data';
+                    noData.textContent = 'No activity';
+                    chartContainer.appendChild(noData);
+                }
+
+                dayCell.appendChild(chartContainer);
+                calendarGrid.appendChild(dayCell);
+            }
+        }
+
+        function createDayChart(dayKey, activities) {
+            const canvas = document.getElementById(`chart-${dayKey}`);
+            if (!canvas) return;
+
+            const ctx = canvas.getContext('2d');
+            
+            // Destroy existing chart if it exists
+            if (dayCharts[dayKey]) {
+                dayCharts[dayKey].destroy();
+            }
+
+            // Combine all activities' data for this day
+            let allSpeedData = [];
+            let allInclineData = [];
+            
+            activities.forEach(activity => {
+                // Sample data points to avoid overcrowding in small charts
+                const sampleRate = Math.max(1, Math.floor(activity.speed.length / 20));
+                for (let i = 0; i < activity.speed.length; i += sampleRate) {
+                    allSpeedData.push(activity.speed[i]);
+                    allInclineData.push(activity.incline[i]);
+                }
+            });
+
+            if (allSpeedData.length === 0) return;
+
+            // Create labels
+            const labels = allSpeedData.map((_, index) => index);
+
+            dayCharts[dayKey] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            data: allSpeedData,
+                            borderColor: '#ff6b6b',
+                            backgroundColor: 'rgba(255, 107, 107, 0.1)',
+                            borderWidth: 1,
+                            fill: false,
+                            tension: 0.1,
+                            pointRadius: 0,
+                        },
+                        {
+                            data: allInclineData,
+                            borderColor: '#4ecdc4',
+                            backgroundColor: 'rgba(78, 205, 196, 0.1)',
+                            borderWidth: 1,
+                            fill: false,
+                            tension: 0.1,
+                            pointRadius: 0,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: false,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            enabled: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: false
+                        },
+                        y: {
+                            display: false,
+                            min: Math.min(monthlyData.min_values.speed, monthlyData.min_values.incline),
+                            max: Math.max(monthlyData.max_values.speed, monthlyData.max_values.incline)
+                        }
+                    },
+                    elements: {
+                        line: {
+                            borderWidth: 1
+                        }
+                    },
+                    animation: false
+                }
+            });
+        }
+
+        // ... existing functions (loadActivities, loadActivityData, etc.) ...
+
         async function loadActivities() {
             try {
                 const response = await fetch('/api/activities');
                 const activities = await response.json();
 
-                console.log('Activities response:', activities); // Debug output
+                console.log('Activities response:', activities);
 
                 if (!response.ok) {
                     throw new Error(activities.error || 'Failed to fetch activities');
@@ -298,10 +629,8 @@
                     select.appendChild(option);
                 });
 
-                // Add event listener for activity selection
                 select.addEventListener('change', function() {
                     if (this.value) {
-                        // Store the selected activity's display name
                         selectedActivityName = this.options[this.selectedIndex].textContent;
                         loadActivityData(this.value);
                         loadActivityDetails(this.value);
@@ -345,22 +674,20 @@
 
         async function loadActivityDetails(tcxid) {
             try {
-                console.log('Loading activity details for tcxid:', tcxid); // Debug log
+                console.log('Loading activity details for tcxid:', tcxid);
                 const response = await fetch(`/api/activity_details/${tcxid}`);
                 const details = await response.json();
 
-                console.log('Activity details response:', response.status, details); // Debug log
+                console.log('Activity details response:', response.status, details);
 
                 if (response.ok) {
                     displayActivityDetails(details);
                 } else {
                     console.error('Failed to load activity details:', details.error);
-                    // Don't show error for details - it's supplementary information
                 }
 
             } catch (error) {
                 console.error('Failed to load activity details:', error.message);
-                // Don't show error for details - it's supplementary information
             }
         }
 
@@ -378,28 +705,24 @@
         }
 
         function displayActivityDetails(details) {
-            console.log('Displaying activity details:', details); // Debug log
+            console.log('Displaying activity details:', details);
             const detailsContainer = document.getElementById('activityDetails');
             const detailsTable = document.getElementById('detailsTable');
 
-            // Clear existing content
             detailsTable.innerHTML = '';
 
-            // Check if we have any details to display
             if (Object.keys(details).length === 0) {
                 console.log('No details to display');
                 detailsContainer.style.display = 'none';
                 return;
             }
 
-            // Populate table with details - prioritize most important info first
             const priorityOrder = [
                 'Sport', 'Total Time', 'Distance', 'Maximum Speed', 
                 'Average Heart Rate', 'Maximum Heart Rate', 'Calories',
                 'Start Time', 'Intensity', 'Notes'
             ];
 
-            // Add priority items first
             priorityOrder.forEach(key => {
                 if (details[key]) {
                     const row = document.createElement('tr');
@@ -411,7 +734,6 @@
                 }
             });
 
-            // Add any remaining items
             Object.entries(details).forEach(([key, value]) => {
                 if (!priorityOrder.includes(key)) {
                     const row = document.createElement('tr');
@@ -423,10 +745,7 @@
                 }
             });
 
-            // Show the details container
             detailsContainer.style.display = 'block';
-            
-            // Make sure the content is initially visible
             document.getElementById('detailsContent').style.display = 'block';
             document.getElementById('toggleIcon').textContent = '▼';
             
@@ -441,28 +760,24 @@
         function createChart(data) {
             const ctx = document.getElementById('activityChart').getContext('2d');
 
-            // Convert seconds to mm:ss format for display
             const formattedLabels = data.labels.map(seconds => {
                 const minutes = Math.floor(seconds / 60);
                 const remainingSeconds = seconds % 60;
                 return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
             });
 
-            // Calculate min and max heart rate values, starting from the 10th valid reading
             const heartRateValues = data.heart_rate.filter(value => value !== null && value !== undefined && value > 0);
-            const heartRateValuesFromTenth = heartRateValues.slice(9); // Skip first 9 values (0-indexed)
+            const heartRateValuesFromTenth = heartRateValues.slice(9);
             
             let minHeartRate, maxHeartRate;
             if (heartRateValuesFromTenth.length > 0) {
                 minHeartRate = Math.min(...heartRateValuesFromTenth);
                 maxHeartRate = Math.max(...heartRateValuesFromTenth);
             } else {
-                // Fallback if there aren't enough readings
                 minHeartRate = heartRateValues.length > 0 ? Math.min(...heartRateValues) : 0;
                 maxHeartRate = heartRateValues.length > 0 ? Math.max(...heartRateValues) : 0;
             }
 
-            // Destroy existing chart if it exists
             if (chart) {
                 chart.destroy();
             }
@@ -589,7 +904,7 @@
                                     if (label) {
                                         label += ': ';
                                     }
-                                    if (context.datasetIndex === 2) { // Heart Rate dataset
+                                    if (context.datasetIndex === 2) {
                                         label += Math.round(context.parsed.y) + ' bpm';
                                     } else {
                                         label += context.parsed.y;
@@ -659,7 +974,7 @@
                         },
                         y2: {
                             type: 'linear',
-                            display: false, // Hide this axis since we can't show 3 y-axes nicely
+                            display: false,
                             position: 'right'
                         }
                     },

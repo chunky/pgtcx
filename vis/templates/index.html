@@ -315,6 +315,7 @@
             <div class="view-toggle">
                 <button id="chartViewBtn" class="active" onclick="switchView('chart')">Chart View</button>
                 <button id="calendarViewBtn" onclick="switchView('calendar')">Calendar View</button>
+                <button id="progressViewBtn" onclick="switchView('progress')">Progress View</button>
             </div>
 
             <div class="select-container">
@@ -383,15 +384,37 @@
                 <!-- Calendar will be populated here -->
             </div>
         </div>
+
+        <div class="content-area" id="progressContent" style="display: none;">
+            <div class="chart-container">
+                <canvas id="progressChart"></canvas>
+            </div>
+
+            <div class="details-container">
+                <div class="activity-details" id="progressDetails" style="display: none;">
+                    <h3 onclick="toggleProgressDetails()" style="cursor: pointer; user-select: none;">
+                        Progress Summary
+                        <span id="progressToggleIcon" style="float: right; font-size: 0.8em;">▼</span>
+                    </h3>
+                    <div id="progressDetailsContent">
+                        <table class="details-table" id="progressDetailsTable">
+                            <!-- Progress details will be populated here -->
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
         let chart = null;
+        let progressChart = null;
         let selectedActivityName = null;
         let currentView = 'chart';
         let currentDate = new Date();
         let monthlyData = null;
         let dayCharts = {};
+        let progressData = null;
 
         // Load activities when page loads
         document.addEventListener('DOMContentLoaded', function() {
@@ -412,30 +435,43 @@
             
             const chartViewBtn = document.getElementById('chartViewBtn');
             const calendarViewBtn = document.getElementById('calendarViewBtn');
+            const progressViewBtn = document.getElementById('progressViewBtn');
             const chartContent = document.getElementById('chartContent');
             const calendarContent = document.getElementById('calendarContent');
+            const progressContent = document.getElementById('progressContent');
             const activitySelect = document.getElementById('activitySelect');
             const smoothingSelect = document.getElementById('smoothingSelect');
             const calendarControls = document.querySelector('.calendar-controls');
 
+            // Reset all buttons and contents
+            chartViewBtn.classList.remove('active');
+            calendarViewBtn.classList.remove('active');
+            progressViewBtn.classList.remove('active');
+            chartContent.style.display = 'none';
+            calendarContent.style.display = 'none';
+            progressContent.style.display = 'none';
+
             if (view === 'chart') {
                 chartViewBtn.classList.add('active');
-                calendarViewBtn.classList.remove('active');
                 chartContent.style.display = 'flex';
-                calendarContent.style.display = 'none';
                 activitySelect.style.display = 'block';
                 smoothingSelect.style.display = 'block';
                 calendarControls.style.display = 'none';
-            } else {
-                chartViewBtn.classList.remove('active');
+            } else if (view === 'calendar') {
                 calendarViewBtn.classList.add('active');
-                chartContent.style.display = 'none';
                 calendarContent.style.display = 'block';
                 activitySelect.style.display = 'none';
                 smoothingSelect.style.display = 'none';
                 calendarControls.style.display = 'flex';
                 initializeCalendarControls();
                 loadCalendarData();
+            } else if (view === 'progress') {
+                progressViewBtn.classList.add('active');
+                progressContent.style.display = 'flex';
+                activitySelect.style.display = 'none';
+                smoothingSelect.style.display = 'none';
+                calendarControls.style.display = 'none';
+                loadProgressData();
             }
         }
 
@@ -1102,6 +1138,253 @@
         function hideError() {
             const errorDiv = document.getElementById('errorMessage');
             errorDiv.style.display = 'none';
+        }
+
+        async function loadProgressData() {
+            showLoading(true);
+            hideError();
+
+            try {
+                const response = await fetch('/api/progress_data');
+                progressData = await response.json();
+
+                if (response.ok) {
+                    createProgressChart();
+                    updateProgressDetails();
+                } else {
+                    showError(progressData.error || 'Failed to load progress data');
+                }
+
+            } catch (error) {
+                showError('Failed to load progress data: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function createProgressChart() {
+            const ctx = document.getElementById('progressChart').getContext('2d');
+
+            // Destroy existing chart if it exists
+            if (progressChart) {
+                progressChart.destroy();
+            }
+
+            // Filter out zero heart rate values for display
+            const filteredHeartRateData = progressData.avg_heartrate.map(hr => hr === 0 ? null : hr);
+            const hasValidHeartRate = progressData.avg_heartrate.some(hr => hr > 0);
+
+            const datasets = [
+                {
+                    label: 'Average Speed (km/h)',
+                    data: progressData.avg_speed,
+                    borderColor: '#ff6b6b',
+                    backgroundColor: 'rgba(255, 107, 107, 0.1)',
+                    borderWidth: 2,
+                    fill: false,
+                    tension: 0.1,
+                    pointRadius: 0,
+                    pointHoverRadius: 6,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Average Incline (%)',
+                    data: progressData.avg_incline,
+                    borderColor: '#4ecdc4',
+                    backgroundColor: 'rgba(78, 205, 196, 0.1)',
+                    borderWidth: 2,
+                    fill: false,
+                    tension: 0.1,
+                    pointRadius: 0,
+                    pointHoverRadius: 6,
+                    yAxisID: 'y1'
+                }
+            ];
+
+            // Only add heart rate dataset if there are valid heart rate values
+            if (hasValidHeartRate) {
+                datasets.push({
+                    label: 'Average Heart Rate (bpm)',
+                    data: filteredHeartRateData,
+                    borderColor: '#ffa726',
+                    backgroundColor: 'rgba(255, 167, 38, 0.1)',
+                    borderWidth: 2,
+                    fill: false,
+                    tension: 0.1,
+                    pointRadius: 0,
+                    pointHoverRadius: 6,
+                    yAxisID: 'y2',
+                    spanGaps: false
+                });
+            }
+
+            progressChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: progressData.labels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Training Progress Over Time',
+                            font: {
+                                size: 20,
+                                weight: 'bold'
+                            },
+                            color: '#2c3e50'
+                        },
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                afterBody: function(context) {
+                                    const dataIndex = context[0].dataIndex;
+                                    const info = progressData.activity_info[dataIndex];
+                                    return [
+                                        `Activity: ${info.notes || 'No notes'}`,
+                                        `Sport: ${info.sport}`,
+                                        `Distance: ${info.distance} km`,
+                                        `Duration: ${info.duration} min`
+                                    ];
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Date',
+                                font: {
+                                    weight: 'bold'
+                                }
+                            },
+                            ticks: {
+                                maxTicksLimit: 10
+                            }
+                        },
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'Speed (km/h)',
+                                color: '#ff6b6b',
+                                font: {
+                                    weight: 'bold'
+                                }
+                            },
+                            ticks: {
+                                color: '#ff6b6b'
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: 'Incline (%)',
+                                color: '#4ecdc4',
+                                font: {
+                                    weight: 'bold'
+                                }
+                            },
+                            ticks: {
+                                color: '#4ecdc4'
+                            },
+                            grid: {
+                                drawOnChartArea: false,
+                            }
+                        },
+                        y2: {
+                            type: 'linear',
+                            display: false,
+                            position: 'right'
+                        }
+                    },
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    }
+                }
+            });
+        }
+
+        function updateProgressDetails() {
+            const progressDetails = document.getElementById('progressDetails');
+            const progressDetailsTable = document.getElementById('progressDetailsTable');
+
+            if (!progressData || progressData.labels.length === 0) {
+                progressDetails.style.display = 'none';
+                return;
+            }
+
+            // Calculate summary statistics
+            const speeds = progressData.avg_speed.filter(speed => speed > 0);
+            const inclines = progressData.avg_incline;
+            const heartRates = progressData.avg_heartrate.filter(hr => hr > 0);
+
+            const avgSpeed = speeds.length > 0 ? (speeds.reduce((a, b) => a + b, 0) / speeds.length).toFixed(2) : 'N/A';
+            const maxSpeed = speeds.length > 0 ? Math.max(...speeds).toFixed(2) : 'N/A';
+            const avgIncline = inclines.length > 0 ? (inclines.reduce((a, b) => a + b, 0) / inclines.length).toFixed(2) : 'N/A';
+            const maxIncline = inclines.length > 0 ? Math.max(...inclines).toFixed(2) : 'N/A';
+            const avgHeartRate = heartRates.length > 0 ? Math.round(heartRates.reduce((a, b) => a + b, 0) / heartRates.length) : 'N/A';
+            const maxHeartRate = heartRates.length > 0 ? Math.max(...heartRates) : 'N/A';
+
+            const totalActivities = progressData.labels.length;
+            const totalDistance = progressData.activity_info.reduce((sum, info) => sum + info.distance, 0).toFixed(2);
+            const totalDuration = progressData.activity_info.reduce((sum, info) => sum + info.duration, 0).toFixed(1);
+
+            const details = [
+                ['Total Activities', totalActivities],
+                ['Total Distance', `${totalDistance} km`],
+                ['Total Duration', `${totalDuration} min`],
+                ['Average Speed', `${avgSpeed} km/h`],
+                ['Maximum Speed', `${maxSpeed} km/h`],
+                ['Average Incline', `${avgIncline}%`],
+                ['Maximum Incline', `${maxIncline}%`]
+            ];
+
+            // Only add heart rate details if there are valid heart rate values
+            if (heartRates.length > 0) {
+                details.push(['Average Heart Rate', `${avgHeartRate} bpm`]);
+                details.push(['Maximum Heart Rate', `${maxHeartRate} bpm`]);
+            }
+
+            progressDetailsTable.innerHTML = '';
+            details.forEach(([key, value]) => {
+                const row = progressDetailsTable.insertRow();
+                const keyCell = row.insertCell();
+                const valueCell = row.insertCell();
+                keyCell.textContent = key;
+                valueCell.textContent = value;
+            });
+
+            progressDetails.style.display = 'block';
+        }
+
+        function toggleProgressDetails() {
+            const content = document.getElementById('progressDetailsContent');
+            const icon = document.getElementById('progressToggleIcon');
+            
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                icon.textContent = '▼';
+            } else {
+                content.style.display = 'none';
+                icon.textContent = '▶';
+            }
         }
     </script>
 </body>

@@ -335,5 +335,91 @@ def get_monthly_data(year, month):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/progress_data')
+def get_progress_data():
+    """Get aggregated data over time for progress tracking (one datapoint per run)"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        # Get all activities with their aggregated stats
+        query = """
+        SELECT 
+            a.tcxid,
+            a.lapstarttime,
+            a.notes,
+            a.sport,
+            a.averageheartratebpm,
+            a.totaltimeseconds,
+            a.distancemeters,
+            AVG(sd.speed_kph) as avg_speed,
+            AVG(CASE WHEN sd.gradient IS NOT NULL THEN sd.gradient ELSE 0 END) as avg_incline,
+            AVG(CASE WHEN sd.avg_heartrate_bpm IS NOT NULL AND sd.avg_heartrate_bpm > 0 
+                     THEN sd.avg_heartrate_bpm ELSE a.averageheartratebpm END) as avg_heartrate_detailed
+        FROM activity a
+        LEFT JOIN speeds_dists sd ON a.tcxid = sd.tcxid 
+            AND sd.speed_kph IS NOT NULL 
+            AND sd.speed_kph > 0
+        WHERE a.lapstarttime IS NOT NULL
+        GROUP BY a.tcxid, a.lapstarttime, a.notes, a.sport, a.averageheartratebpm, 
+                 a.totaltimeseconds, a.distancemeters
+        ORDER BY a.lapstarttime
+        """
+
+        cur.execute(query)
+        activities = cur.fetchall()
+
+        if not activities:
+            return jsonify({'error': 'No activities found'}), 404
+
+        # Format data for Chart.js
+        progress_data = {
+            'labels': [],
+            'avg_speed': [],
+            'avg_incline': [],
+            'avg_heartrate': [],
+            'activity_info': []  # Store additional info for tooltips
+        }
+
+        for activity in activities:
+            # Use the date as label
+            activity_date = activity['lapstarttime']
+            formatted_date = activity_date.strftime('%Y-%m-%d')
+            
+            progress_data['labels'].append(formatted_date)
+            
+            # Add average values (handle None values)
+            avg_speed = activity['avg_speed'] if activity['avg_speed'] else 0
+            avg_incline = activity['avg_incline'] if activity['avg_incline'] else 0
+            
+            # Use detailed heart rate if available, otherwise fall back to activity average
+            avg_heartrate = activity['avg_heartrate_detailed'] if activity['avg_heartrate_detailed'] else (
+                activity['averageheartratebpm'] if activity['averageheartratebpm'] else 0
+            )
+            
+            progress_data['avg_speed'].append(round(avg_speed, 2))
+            progress_data['avg_incline'].append(round(avg_incline, 2))
+            progress_data['avg_heartrate'].append(round(avg_heartrate, 0))
+            
+            # Store additional info for tooltips
+            distance_km = activity['distancemeters'] / 1000 if activity['distancemeters'] else 0
+            duration_min = activity['totaltimeseconds'] / 60 if activity['totaltimeseconds'] else 0
+            
+            progress_data['activity_info'].append({
+                'tcxid': activity['tcxid'],
+                'notes': activity['notes'] or '',
+                'sport': activity['sport'] or '',
+                'distance': round(distance_km, 2),
+                'duration': round(duration_min, 1)
+            })
+
+        cur.close()
+        conn.close()
+
+        return jsonify(progress_data)
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.run(debug=True)

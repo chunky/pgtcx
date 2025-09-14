@@ -17,25 +17,24 @@ CREATE OR REPLACE TRIGGER trigger_generate_body_hash
     FOR EACH ROW
     EXECUTE FUNCTION generate_body_hash();
 
-DROP VIEW IF EXISTS activity CASCADE;
-CREATE VIEW activity AS
-WITH a(ns) AS (
-    VALUES (ARRAY[ARRAY['tcx', 'http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2']])
-)
-SELECT tcx.tcxid AS tcxid,
-    (XPATH('/tcx:TrainingCenterDatabase/tcx:Activities/tcx:Activity[1]/tcx:Id[1]/text()', body, ns))[1]::text AS activityid,
-    (XPATH('/tcx:TrainingCenterDatabase/tcx:Activities/tcx:Activity[1]/@Sport', body, ns))[1]::text AS Sport,
-    (XPATH('/tcx:TrainingCenterDatabase/tcx:Activities/tcx:Activity[1]/tcx:Notes[1]/text()', body, ns))[1]::text AS Notes,
-    to_timestamp((XPATH('/tcx:TrainingCenterDatabase/tcx:Activities/tcx:Activity[1]/tcx:Lap[1]/@StartTime', body, ns))[1]::text,
-            'YYYY-MM-DD"T"HH24:MI:SS"Z"')::timestamp AS LapStartTime,
-    (XPATH('/tcx:TrainingCenterDatabase/tcx:Activities/tcx:Activity[1]/tcx:Lap[1]/tcx:TotalTimeSeconds/text()', body, ns))[1]::text::real AS TotalTimeSeconds,
-    (XPATH('/tcx:TrainingCenterDatabase/tcx:Activities/tcx:Activity[1]/tcx:Lap[1]/tcx:DistanceMeters[1]/text()', body, ns))[1]::text::real AS DistanceMeters,
-    (XPATH('/tcx:TrainingCenterDatabase/tcx:Activities/tcx:Activity[1]/tcx:Lap[1]/tcx:MaximumSpeed[1]/text()', body, ns))[1]::text::real AS MaximumSpeed,
-    (XPATH('/tcx:TrainingCenterDatabase/tcx:Activities/tcx:Activity[1]/tcx:Lap[1]/tcx:Calories[1]/text()', body, ns))[1]::text::real AS Calories,
-    (XPATH('/tcx:TrainingCenterDatabase/tcx:Activities/tcx:Activity[1]/tcx:Lap[1]/tcx:AverageHeartRateBpm[1]/tcx:Value[1]/text()', body, ns))[1]::text::real AS AverageHeartRateBpm,
-    (XPATH('/tcx:TrainingCenterDatabase/tcx:Activities/tcx:Activity[1]/tcx:Lap[1]/tcx:MaximumHeartRateBpm[1]/tcx:Value[1]/text()', body, ns))[1]::text::real AS MaximumHeartRateBpm,
-    (XPATH('/tcx:TrainingCenterDatabase/tcx:Activities/tcx:Activity[1]/tcx:Lap[1]/tcx:Intensity[1]/text()', body, ns))[1]::text AS Intensity
-  FROM tcx, a;
+DROP TABLE IF EXISTS activity CASCADE;
+CREATE TABLE activity (
+    activityid SERIAL PRIMARY KEY,
+    tcxid INTEGER NOT NULL REFERENCES tcx(tcxid),
+    activity_id TEXT NOT NULL,
+    sport TEXT,
+    notes TEXT,
+    lapstarttime TIMESTAMP,
+    totaltimeseconds REAL,
+    distancemeters REAL,
+    maximumspeed REAL,
+    calories REAL,
+    averageheartratebpm REAL,
+    maximumheartratebpm REAL,
+    intensity TEXT
+);
+
+CREATE INDEX idx_activity_tcxid ON activity (tcxid);
 
 DROP TABLE IF EXISTS trackpoint CASCADE;
 CREATE TABLE trackpoint (trackpointid SERIAL PRIMARY KEY,
@@ -95,6 +94,51 @@ CREATE TRIGGER tcx_trackpoint_insert_trigger
     AFTER INSERT ON tcx
     FOR EACH ROW
     EXECUTE FUNCTION insert_trackpoint_from_tcx();
+
+CREATE OR REPLACE FUNCTION insert_activity_from_tcx()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO activity (
+        tcxid,
+        activity_id,
+        sport,
+        notes,
+        lapstarttime,
+        totaltimeseconds,
+        distancemeters,
+        maximumspeed,
+        calories,
+        averageheartratebpm,
+        maximumheartratebpm,
+        intensity
+    )
+    WITH a(ns, prefix) AS (
+        VALUES (ARRAY[ARRAY['tcx', 'http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2']],
+                '/tcx:TrainingCenterDatabase/tcx:Activities/tcx:Activity[1]')
+    )
+    SELECT NEW.tcxid AS tcxid,
+        (XPATH(prefix || '/tcx:Id[1]/text()', NEW.body, ns))[1]::text AS activity_id,
+        (XPATH(prefix || '/@Sport', NEW.body, ns))[1]::text AS sport,
+        (XPATH(prefix || '/tcx:Notes[1]/text()', NEW.body, ns))[1]::text AS notes,
+        to_timestamp((XPATH(prefix || '/tcx:Lap[1]/@StartTime', NEW.body, ns))[1]::text,
+                'YYYY-MM-DD"T"HH24:MI:SS"Z"')::timestamp AS lapstarttime,
+        (XPATH(prefix || '/tcx:Lap[1]/tcx:TotalTimeSeconds[1]/text()', NEW.body, ns))[1]::text::real AS totaltimeseconds,
+        (XPATH(prefix || '/tcx:Lap[1]/tcx:DistanceMeters[1]/text()', NEW.body, ns))[1]::text::real AS distancemeters,
+        (XPATH(prefix || '/tcx:Lap[1]/tcx:MaximumSpeed[1]/text()', NEW.body, ns))[1]::text::real AS maximumspeed,
+        (XPATH(prefix || '/tcx:Lap[1]/tcx:Calories[1]/text()', NEW.body, ns))[1]::text::real AS calories,
+        (XPATH(prefix || '/tcx:Lap[1]/tcx:AverageHeartRateBpm[1]/tcx:Value[1]/text()', NEW.body, ns))[1]::text::real AS averageheartratebpm,
+        (XPATH(prefix || '/tcx:Lap[1]/tcx:MaximumHeartRateBpm[1]/tcx:Value[1]/text()', NEW.body, ns))[1]::text::real AS maximumheartratebpm,
+        (XPATH(prefix || '/tcx:Lap[1]/tcx:Intensity[1]/text()', NEW.body, ns))[1]::text AS intensity
+      FROM a;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER tcx_activity_insert_trigger
+    AFTER INSERT ON tcx
+    FOR EACH ROW
+    EXECUTE FUNCTION insert_activity_from_tcx();
 
 -- Treadmill works in increments of tenths of <speed units> or whole number gradient. Compute and round accordingly
 DROP VIEW IF EXISTS speeds_dists;

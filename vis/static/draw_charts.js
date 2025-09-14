@@ -830,7 +830,29 @@ function createProgressChart() {
                 },
                 legend: {
                     display: true,
-                    position: 'top'
+                    position: 'top',
+                    onClick: function(evt, legendItem, legend) {
+                        // Custom legend click to toggle dataset visibility
+                        const index = legendItem.datasetIndex;
+                        const chart = legend.chart;
+                        const meta = chart.getDatasetMeta(index);
+                        
+                        meta.hidden = meta.hidden === null ? !chart.data.datasets[index].hidden : null;
+                        chart.update();
+                    },
+                    labels: {
+                        generateLabels: function(chart) {
+                            const datasets = chart.data.datasets;
+                            return datasets.map((dataset, i) => ({
+                                text: dataset.label,
+                                fillStyle: dataset.borderColor,
+                                strokeStyle: dataset.borderColor,
+                                lineWidth: 3,
+                                hidden: chart.getDatasetMeta(i).hidden,
+                                datasetIndex: i
+                            }));
+                        }
+                    }
                 },
                 tooltip: {
                     mode: 'index',

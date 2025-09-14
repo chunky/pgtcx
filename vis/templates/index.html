@@ -1316,6 +1316,21 @@
                     interaction: {
                         mode: 'index',
                         intersect: false,
+                    },
+                    onClick: function(evt, activeElements) {
+                        // Handle click on progress chart
+                        if (activeElements && activeElements.length > 0) {
+                            const dataIndex = activeElements[0].index;
+                            const tcxid = progressData.activity_info[dataIndex].tcxid;
+                            
+                            if (tcxid) {
+                                navigateToChartView(tcxid);
+                            }
+                        }
+                    },
+                    onHover: function(event, elements) {
+                        // Change cursor to pointer when hovering over data points
+                        event.native.target.style.cursor = elements.length > 0 ? 'pointer' : 'default';
                     }
                 }
             });

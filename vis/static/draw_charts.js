@@ -7,6 +7,38 @@ let monthlyData = null;
 let dayCharts = {};
 let progressData = null;
 
+// Unit conversion functions
+function getUnitsSystem() {
+    const unitsSelect = document.getElementById('unitsSelect');
+    return unitsSelect ? unitsSelect.value : 'metric';
+}
+
+function convertSpeed(speedKmh) {
+    const units = getUnitsSystem();
+    if (units === 'imperial') {
+        return speedKmh * 0.621371; // km/h to mph
+    }
+    return speedKmh;
+}
+
+function convertDistance(distanceKm) {
+    const units = getUnitsSystem();
+    if (units === 'imperial') {
+        return distanceKm * 0.621371; // km to miles
+    }
+    return distanceKm;
+}
+
+function getSpeedUnit() {
+    const units = getUnitsSystem();
+    return units === 'imperial' ? 'mph' : 'km/h';
+}
+
+function getDistanceUnit() {
+    const units = getUnitsSystem();
+    return units === 'imperial' ? 'miles' : 'km';
+}
+
 // Load activities when page loads
 document.addEventListener('DOMContentLoaded', function() {
     loadActivities();
@@ -17,6 +49,24 @@ document.addEventListener('DOMContentLoaded', function() {
         const activitySelect = document.getElementById('activitySelect');
         if (activitySelect.value && selectedActivityName) {
             loadActivityData(activitySelect.value);
+        }
+    });
+    
+    // Add event listener for units selection
+    const unitsSelect = document.getElementById('unitsSelect');
+    unitsSelect.addEventListener('change', function() {
+        // Refresh current view with new units
+        if (currentView === 'chart' && chart) {
+            const activitySelect = document.getElementById('activitySelect');
+            if (activitySelect.value && selectedActivityName) {
+                loadActivityData(activitySelect.value);
+                loadActivityDetails(activitySelect.value);
+            }
+        } else if (currentView === 'calendar' && monthlyData) {
+            createCalendar();
+        } else if (currentView === 'progress' && progressData) {
+            createProgressChart();
+            updateProgressDetails();
         }
     });
 });
@@ -203,7 +253,7 @@ function createDayChart(dayKey, activities) {
         dayCharts[dayKey].destroy();
     }
 
-    // Combine all activities' data for this day
+    // Combine all activities' data for this day with unit conversion
     let allSpeedData = [];
     let allInclineData = [];
     
@@ -211,7 +261,7 @@ function createDayChart(dayKey, activities) {
         // Sample data points to avoid overcrowding in small charts
         const sampleRate = Math.max(1, Math.floor(activity.speed.length / 50));
         for (let i = 0; i < activity.speed.length; i += sampleRate) {
-            allSpeedData.push(activity.speed[i]);
+            allSpeedData.push(convertSpeed(activity.speed[i]));
             allInclineData.push(activity.incline[i]);
         }
     });
@@ -220,6 +270,10 @@ function createDayChart(dayKey, activities) {
 
     // Create labels
     const labels = allSpeedData.map((_, index) => index);
+
+    // Convert min/max values for scaling
+    const convertedMinSpeed = convertSpeed(monthlyData.min_values.speed);
+    const convertedMaxSpeed = convertSpeed(monthlyData.max_values.speed);
 
     dayCharts[dayKey] = new Chart(ctx, {
         type: 'line',
@@ -283,8 +337,8 @@ function createDayChart(dayKey, activities) {
                 },
                 y: {
                     display: false,
-                    min: Math.min(monthlyData.min_values.speed, monthlyData.min_values.incline),
-                    max: Math.max(monthlyData.max_values.speed, monthlyData.max_values.incline)
+                    min: Math.min(convertedMinSpeed, monthlyData.min_values.incline),
+                    max: Math.max(convertedMaxSpeed, monthlyData.max_values.incline)
                 }
             },
             elements: {
@@ -453,10 +507,25 @@ function displayActivityDetails(details) {
 
     priorityOrder.forEach(key => {
         if (details[key]) {
+            let value = details[key];
+            
+            // Apply unit conversions to display values
+            if (key === 'Distance' && typeof value === 'string' && value.includes('km')) {
+                const numValue = parseFloat(value);
+                if (!isNaN(numValue)) {
+                    value = `${convertDistance(numValue).toFixed(2)} ${getDistanceUnit()}`;
+                }
+            } else if (key === 'Maximum Speed' && typeof value === 'string' && value.includes('km/h')) {
+                const numValue = parseFloat(value);
+                if (!isNaN(numValue)) {
+                    value = `${convertSpeed(numValue).toFixed(2)} ${getSpeedUnit()}`;
+                }
+            }
+            
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${key}</td>
-                <td>${details[key]}</td>
+                <td>${value}</td>
             `;
             detailsTable.appendChild(row);
         }
@@ -506,6 +575,9 @@ function createChart(data) {
         maxHeartRate = heartRateValues.length > 0 ? Math.max(...heartRateValues) : 0;
     }
 
+    // Convert speed data for display
+    const convertedSpeedData = data.speed.map(speed => convertSpeed(speed));
+
     if (chart) {
         chart.destroy();
     }
@@ -516,8 +588,8 @@ function createChart(data) {
             labels: formattedLabels,
             datasets: [
                 {
-                    label: 'Speed (km/h)',
-                    data: data.speed,
+                    label: `Speed (${getSpeedUnit()})`,
+                    data: convertedSpeedData,
                     borderColor: '#ff6b6b',
                     backgroundColor: 'rgba(255, 107, 107, 0.1)',
                     borderWidth: 2,
@@ -635,9 +707,9 @@ function createChart(data) {
                             if (context.datasetIndex === 2) {
                                 label += Math.round(context.parsed.y) + ' bpm';
                             } else {
-                                label += context.parsed.y;
+                                label += context.parsed.y.toFixed(2);
                                 if (context.datasetIndex === 0) {
-                                    label += ' km/h';
+                                    label += ' ' + getSpeedUnit();
                                 } else if (context.datasetIndex === 1) {
                                     label += '%';
                                 }
@@ -668,7 +740,7 @@ function createChart(data) {
                     min: 0,
                     title: {
                         display: true,
-                        text: 'Speed (km/h)',
+                        text: `Speed (${getSpeedUnit()})`,
                         color: '#ff6b6b',
                         font: {
                             weight: 'bold'
@@ -765,10 +837,13 @@ function createProgressChart() {
     const filteredHeartRateData = progressData.avg_heartrate.map(hr => hr === 0 ? null : hr);
     const hasValidHeartRate = progressData.avg_heartrate.some(hr => hr > 0);
 
+    // Convert speed data for display
+    const convertedSpeedData = progressData.avg_speed.map(speed => convertSpeed(speed));
+
     const datasets = [
         {
-            label: 'Average Speed (km/h)',
-            data: progressData.avg_speed,
+            label: `Average Speed (${getSpeedUnit()})`,
+            data: convertedSpeedData,
             borderColor: '#ff6b6b',
             backgroundColor: 'rgba(255, 107, 107, 0.1)',
             borderWidth: 2,
@@ -836,13 +911,28 @@ function createProgressChart() {
                     mode: 'index',
                     intersect: false,
                     callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            label += context.parsed.y.toFixed(2);
+                            if (context.datasetIndex === 0) {
+                                label += ' ' + getSpeedUnit();
+                            } else if (context.datasetIndex === 1) {
+                                label += '%';
+                            } else if (context.datasetIndex === 2) {
+                                label += ' bpm';
+                            }
+                            return label;
+                        },
                         afterBody: function(context) {
                             const dataIndex = context[0].dataIndex;
                             const info = progressData.activity_info[dataIndex];
                             return [
                                 `Activity: ${info.notes || 'No notes'}`,
                                 `Sport: ${info.sport}`,
-                                `Distance: ${info.distance} km`,
+                                `Distance: ${convertDistance(info.distance).toFixed(2)} ${getDistanceUnit()}`,
                                 `Duration: ${info.duration} min`
                             ];
                         }
@@ -869,7 +959,7 @@ function createProgressChart() {
                     position: 'left',
                     title: {
                         display: true,
-                        text: 'Speed (km/h)',
+                        text: `Speed (${getSpeedUnit()})`,
                         color: '#ff6b6b',
                         font: {
                             weight: 'bold'
@@ -936,28 +1026,29 @@ function updateProgressDetails() {
         return;
     }
 
-    // Calculate summary statistics
+    // Calculate summary statistics with unit conversion
     const speeds = progressData.avg_speed.filter(speed => speed > 0);
     const inclines = progressData.avg_incline;
     const heartRates = progressData.avg_heartrate.filter(hr => hr > 0);
 
-    const avgSpeed = speeds.length > 0 ? (speeds.reduce((a, b) => a + b, 0) / speeds.length).toFixed(2) : 'N/A';
-    const maxSpeed = speeds.length > 0 ? Math.max(...speeds).toFixed(2) : 'N/A';
+    // Apply unit conversions to the calculated values
+    const avgSpeed = speeds.length > 0 ? convertSpeed(speeds.reduce((a, b) => a + b, 0) / speeds.length).toFixed(2) : 'N/A';
+    const maxSpeed = speeds.length > 0 ? convertSpeed(Math.max(...speeds)).toFixed(2) : 'N/A';
     const avgIncline = inclines.length > 0 ? (inclines.reduce((a, b) => a + b, 0) / inclines.length).toFixed(2) : 'N/A';
     const maxIncline = inclines.length > 0 ? Math.max(...inclines).toFixed(2) : 'N/A';
     const avgHeartRate = heartRates.length > 0 ? Math.round(heartRates.reduce((a, b) => a + b, 0) / heartRates.length) : 'N/A';
     const maxHeartRate = heartRates.length > 0 ? Math.max(...heartRates) : 'N/A';
 
     const totalActivities = progressData.labels.length;
-    const totalDistance = progressData.activity_info.reduce((sum, info) => sum + info.distance, 0).toFixed(2);
+    const totalDistance = convertDistance(progressData.activity_info.reduce((sum, info) => sum + info.distance, 0)).toFixed(2);
     const totalDuration = progressData.activity_info.reduce((sum, info) => sum + info.duration, 0).toFixed(1);
 
     const details = [
         ['Total Activities', totalActivities],
-        ['Total Distance', `${totalDistance} km`],
+        ['Total Distance', `${totalDistance} ${getDistanceUnit()}`],
         ['Total Duration', `${totalDuration} min`],
-        ['Average Speed', `${avgSpeed} km/h`],
-        ['Maximum Speed', `${maxSpeed} km/h`],
+        ['Average Speed', `${avgSpeed} ${getSpeedUnit()}`],
+        ['Maximum Speed', `${maxSpeed} ${getSpeedUnit()}`],
         ['Average Incline', `${avgIncline}%`],
         ['Maximum Incline', `${maxIncline}%`]
     ];

@@ -426,6 +426,17 @@ async function loadActivities() {
             }
         });
 
+        // Auto-select the first activity if available (most recent since they're ordered by date DESC)
+        if (activities.length > 0) {
+            const firstActivity = activities[0];
+            select.value = firstActivity.tcxid;
+            selectedActivityName = firstActivity.display_name;
+            
+            // Load the data for the selected activity
+            loadActivityData(firstActivity.tcxid);
+            loadActivityDetails(firstActivity.tcxid);
+        }
+
     } catch (error) {
         console.error('Error loading activities:', error);
         showError('Failed to load activities: ' + error.message);

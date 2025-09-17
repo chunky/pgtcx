@@ -33,6 +33,7 @@ Run ```python3 app.py``` in vis
 
 <img src="readme_imgs/chart.png" width="90%">
 <img src="readme_imgs/calendar_sparklines.png" width="90%">
+<img src="readme_imgs/progress_over_time.png" width="90%">
 
 Gary <chunkyks@gmail.com>
 

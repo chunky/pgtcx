@@ -1042,34 +1042,17 @@ function updateProgressDetails() {
     const inclines = progressData.avg_incline;
     const heartRates = progressData.avg_heartrate.filter(hr => hr > 0);
 
-    // Apply unit conversions to the calculated values
-    const avgSpeed = speeds.length > 0 ? convertSpeed(speeds.reduce((a, b) => a + b, 0) / speeds.length).toFixed(2) : 'N/A';
-    const maxSpeed = speeds.length > 0 ? convertSpeed(Math.max(...speeds)).toFixed(2) : 'N/A';
-    const avgIncline = inclines.length > 0 ? (inclines.reduce((a, b) => a + b, 0) / inclines.length).toFixed(2) : 'N/A';
-    const maxIncline = inclines.length > 0 ? Math.max(...inclines).toFixed(2) : 'N/A';
-    const avgHeartRate = heartRates.length > 0 ? Math.round(heartRates.reduce((a, b) => a + b, 0) / heartRates.length) : 'N/A';
-    const maxHeartRate = heartRates.length > 0 ? Math.max(...heartRates) : 'N/A';
-
     const totalActivities = progressData.labels.length;
     const totalDistance = convertDistance(progressData.activity_info.reduce((sum, info) => sum + info.distance, 0)).toFixed(2);
     const totalDuration = progressData.activity_info.reduce((sum, info) => sum + info.duration, 0).toFixed(1);
 
+    const hrs = Math.floor(totalDuration / 60);
+    const mins = totalDuration % 60;
     const details = [
         ['Total Activities', totalActivities],
         ['Total Distance', `${totalDistance} ${getDistanceUnit()}`],
-        ['Total Duration', `${totalDuration} min`],
-        ['Average Speed', `${avgSpeed} ${getSpeedUnit()}`],
-        ['Maximum Speed', `${maxSpeed} ${getSpeedUnit()}`],
-        ['Average Incline', `${avgIncline}%`],
-        ['Maximum Incline', `${maxIncline}%`]
+        ['Total Duration', `${hrs} hrs ${mins} min`]
     ];
-
-    // Only add heart rate details if there are valid heart rate values
-    if (heartRates.length > 0) {
-        details.push(['Average Heart Rate', `${avgHeartRate} bpm`]);
-        details.push(['Maximum Heart Rate', `${maxHeartRate} bpm`]);
-    }
-
     progressDetailsTable.innerHTML = '';
     details.forEach(([key, value]) => {
         const row = progressDetailsTable.insertRow();

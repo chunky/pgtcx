@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload TCX Files</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='dashboard_styles.css') }}">
+    <style>
+        .upload-container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 2rem;
+        }
+        .upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 3rem;
+            text-align: center;
+            margin: 2rem 0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .upload-area:hover, .upload-area.dragover {
+            border-color: #007bff;
+            background-color: #f0f8ff;
+        }
+        .upload-area input[type="file"] {
+            display: none;
+        }
+        .file-list {
+            margin: 2rem 0;
+        }
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            margin: 0.5rem 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #fff;
+        }
+        .file-item .file-name {
+            flex-grow: 1;
+        }
+        .file-item .file-status {
+            margin-left: 1rem;
+            font-weight: bold;
+        }
+        .file-item .file-status.success {
+            color: #28a745;
+        }
+        .file-item .file-status.error {
+            color: #dc3545;
+        }
+        .file-item .file-status.pending {
+            color: #6c757d;
+        }
+        .upload-button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 0.75rem 2rem;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .upload-button:hover {
+            background-color: #0056b3;
+        }
+        .upload-button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 1rem;
+            color: #007bff;
+            text-decoration: none;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        .error-message {
+            color: #dc3545;
+            margin-top: 1rem;
+        }
+        .success-message {
+            color: #28a745;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="upload-container">
+            <a href="/" class="back-link">← Back to Dashboard</a>
+            <h1>Upload TCX Files</h1>
+
+            <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+                <input type="file" id="fileInput" accept=".tcx" multiple onchange="handleFileSelect(event)">
+                <p>Click to select TCX files or drag and drop them here</p>
+                <p style="font-size: 0.9rem; color: #666;">Multiple files supported</p>
+            </div>
+
+            <div class="file-list" id="fileList"></div>
+
+            <div style="text-align: center;">
+                <button class="upload-button" id="uploadButton" onclick="uploadFiles()" disabled>
+                    Upload Files
+                </button>
+            </div>
+
+            <div id="messageArea"></div>
+        </div>
+    </div>
+
+    <script>
+        let selectedFiles = [];
+
+        // Prevent default drag behaviors
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            document.getElementById('uploadArea').addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        // Highlight drop area when file is dragged over
+        ['dragenter', 'dragover'].forEach(eventName => {
+            document.getElementById('uploadArea').addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            document.getElementById('uploadArea').addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight(e) {
+            document.getElementById('uploadArea').classList.add('dragover');
+        }
+
+        function unhighlight(e) {
+            document.getElementById('uploadArea').classList.remove('dragover');
+        }
+
+        // Handle dropped files
+        document.getElementById('uploadArea').addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles(files);
+        }
+
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            handleFiles(files);
+        }
+
+        function handleFiles(files) {
+            selectedFiles = Array.from(files).filter(file => file.name.toLowerCase().endsWith('.tcx'));
+
+            if (selectedFiles.length === 0) {
+                alert('Please select TCX files only');
+                return;
+            }
+
+            displayFileList();
+            document.getElementById('uploadButton').disabled = false;
+        }
+
+        function displayFileList() {
+            const fileList = document.getElementById('fileList');
+            fileList.innerHTML = '<h3>Selected Files:</h3>';
+
+            selectedFiles.forEach((file, index) => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-item';
+                fileItem.innerHTML = `
+                    <span class="file-name">${file.name}</span>
+                    <span class="file-status pending" id="status-${index}">Ready</span>
+                `;
+                fileList.appendChild(fileItem);
+            });
+        }
+
+        async function uploadFiles() {
+            const uploadButton = document.getElementById('uploadButton');
+            const messageArea = document.getElementById('messageArea');
+
+            uploadButton.disabled = true;
+            messageArea.innerHTML = '';
+
+            let successCount = 0;
+            let errorCount = 0;
+
+            for (let i = 0; i < selectedFiles.length; i++) {
+                const file = selectedFiles[i];
+                const statusElement = document.getElementById(`status-${i}`);
+
+                statusElement.textContent = 'Uploading...';
+                statusElement.className = 'file-status pending';
+
+                const formData = new FormData();
+                formData.append('file', file);
+
+                try {
+                    const response = await fetch('/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok) {
+                        statusElement.textContent = 'Success';
+                        statusElement.className = 'file-status success';
+                        successCount++;
+                    } else {
+                        statusElement.textContent = `Error: ${result.error || 'Upload failed'}`;
+                        statusElement.className = 'file-status error';
+                        errorCount++;
+                    }
+                } catch (error) {
+                    statusElement.textContent = `Error: ${error.message}`;
+                    statusElement.className = 'file-status error';
+                    errorCount++;
+                }
+            }
+
+            // Show summary message
+            let summaryMessage = '';
+            if (successCount > 0) {
+                summaryMessage += `<p class="success-message">${successCount} file(s) uploaded successfully.</p>`;
+            }
+            if (errorCount > 0) {
+                summaryMessage += `<p class="error-message">${errorCount} file(s) failed to upload.</p>`;
+            }
+            messageArea.innerHTML = summaryMessage;
+
+            // Re-enable button for new uploads
+            uploadButton.disabled = false;
+        }
+    </script>
+</body>
+</html>

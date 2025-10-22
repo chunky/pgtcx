@@ -6,6 +6,10 @@ import os
 
 app = Flask(__name__)
 
+# Upload configuration
+ALLOWED_EXTENSIONS = {'tcx'}
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+
 # Database configuration
 DB_CONFIG = {
     'host': 'localhost',
@@ -23,6 +27,60 @@ def get_db_connection():
 def index():
     """Main page with activity selector and chart"""
     return render_template('index.html')
+
+@app.route('/upload')
+def upload_page():
+    """Upload page for TCX files"""
+    return render_template('upload.html')
+
+def allowed_file(filename):
+    """Check if file has allowed extension"""
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    """Handle TCX file upload"""
+    try:
+        # Check if file was sent
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+
+        file = request.files['file']
+
+        # Check if filename is empty
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+
+        # Check if file type is allowed
+        if not allowed_file(file.filename):
+            return jsonify({'error': 'Only TCX files are allowed'}), 400
+
+        # Read file content into memory
+        tcx_content = file.read().decode('utf-8')
+
+        # Insert into database
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        try:
+            cur.execute("INSERT INTO tcx (body) VALUES (%s)", (tcx_content,))
+            conn.commit()
+        except psycopg2.errors.UniqueViolation:
+            conn.rollback()
+            cur.close()
+            conn.close()
+            return jsonify({'error': 'This file has already been uploaded'}), 409
+
+        cur.close()
+        conn.close()
+
+        return jsonify({
+            'message': 'File uploaded successfully',
+            'filename': file.filename
+        }), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/activities')
 def get_activities():

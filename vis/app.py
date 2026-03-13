@@ -12,11 +12,11 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
 # Database configuration
 DB_CONFIG = {
-    'host': 'localhost',
-    'database': 'pgtcx',
-    'user': 'pgtcx',
-    'password': 'pgtcx',
-    'port': '5432'
+    'host': os.environ.get('DB_HOST', 'localhost'),
+    'database': os.environ.get('DB_NAME', 'pgtcx'),
+    'user': os.environ.get('DB_USER', 'pgtcx'),
+    'password': os.environ.get('DB_PASSWORD', 'pgtcx'),
+    'port': os.environ.get('DB_PORT', '5432')
 }
 
 def get_db_connection():

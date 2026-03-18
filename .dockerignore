@@ -1,0 +1,5 @@
+tcx/
+vis/venv/
+vis/uploads/
+*.tar.gz
+readme_imgs/
